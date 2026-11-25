@@ -122,7 +122,21 @@ To be added: how to add new capabilities (charts, email, web search).
 
 | Topic | Current assumption | Status |
 |---|---|---|
-| Which products are "related to" a user | Each user is responsible for a part of the catalog (for example a list of product categories). The dataset has no such link, so the mapping lives outside it. | Open, to be confirmed |
+| Which products are "related to" a user | Access is based on brands. A manager is responsible for one or more brands and can analyze only those; the CEO sees everything. The dataset has no such link, so the mapping lives in our own access table. | Confirmed by the client |
+
+**What the brand scope means for each table.** Customer and order data is visible only through purchases of in-scope products.
+
+| Table | What a brand manager sees |
+|---|---|
+| `products` | Products of their brands |
+| `order_items` | Items with those products |
+| `orders` | Orders that contain at least one such item |
+| `users` | Customers who bought at least one such product |
+
+**Two consequences.**
+
+- `orders.num_of_item` counts every item in the order, including other brands. A manager does not get this column; the item count comes from `order_items`.
+- Customers with no purchases (20,085 of 100,000) are invisible to a manager. The same question gives different numbers to a manager and to the CEO, so every answer states the scope it was computed for.
 
 ## 10. Decision log
 
