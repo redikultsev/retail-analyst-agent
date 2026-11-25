@@ -42,7 +42,45 @@ To be added.
 
 ### 5.2 Safety and PII masking
 
-To be added.
+**Decision.** PII never reaches the model or the screen, because the query that would read it is rejected before execution.
+
+**What the prototype does (level 1).**
+
+| Layer | Rule | Example |
+|---|---|---|
+| SQL guard | Eight `users` columns are forbidden anywhere in a query: `first_name`, `last_name`, `email`, `street_address`, `postal_code`, `latitude`, `longitude`, `user_geom` | `WHERE email LIKE '%acme%'` is rejected, not only `SELECT email` |
+| Output filter | Emails and phone numbers in the final answer are replaced with `[redacted]` | Covers PII that arrives from outside the forbidden columns |
+
+**Why reject the query instead of masking the result.** Two alternatives were considered:
+
+| Alternative | Weakness |
+|---|---|
+| Mask result columns by name (`email` → `***`) | Bypassed by renaming: `SELECT email AS e`, `CONCAT(email, '')` |
+| Filter the final text only | Catches patterns (email, phone), not names or addresses; by then the values were already sent to the model and the trace store |
+
+A column that cannot be referenced never leaves the database. The output filter stays as a second layer for PII that comes from elsewhere (saved report text, the user's own message).
+
+**What stays allowed.** `id` / `user_id` (needed for joins and repeat-purchase metrics; an internal number, not a name), `age`, `gender`, `city`, `state`, `country`, `traffic_source`, `created_at`.
+
+**Known gap, measured on the real data (100,000 users).**
+
+| Combination | Users it singles out |
+|---|---|
+| `age` + `gender` + `city` | 52,413 unique; 78% in groups smaller than 5 |
+| `postal_code` | 21,779 in groups smaller than 5 |
+| `city` | 9,866 in groups smaller than 5 |
+| `state` | 30 in groups smaller than 5 |
+
+A person can be re-identified without a name: someone who knows a customer's age and city finds the single matching row and then reads their orders.
+
+**Next levels (design only).**
+
+| Level | Rule | Closes | Cost |
+|---|---|---|---|
+| 2 | Quasi-identifiers (`age`, `gender`, `city`, `state`, `country`, `traffic_source`) cannot appear in the same row as a customer key. `DISTINCT` and `GROUP BY` rows are fine | "List customers with age and city" | One guard rule; bypassed by grouping on many attributes |
+| 3 | Groups smaller than k = 5 are dropped from results, with a note "N small groups hidden" (k-anonymity) | The grouping bypass | Query rewriting with `HAVING`; nested queries are hard |
+
+**Why level 1 only in the prototype.** The assignment says PII. Age and city are not PII on their own; levels 2 and 3 need rule tuning that does not fit the time box. The gap is stated above with numbers, not hidden.
 
 ### 5.3 High-stakes oversight
 
@@ -96,3 +134,4 @@ To be added: how to add new capabilities (charts, email, web search).
 | 4 | Golden Bucket: a small local mock in the prototype, full design in this document. | Shows the idea working without building a data lake. | Design only. | Accepted |
 | 5 | Saved reports: SQLite in the prototype. | One file, no setup, easy to run on another machine. | Firestore or Postgres (production option). | Proposed |
 | 6 | SQL checks: `sqlglot` with the BigQuery dialect, plus our own rules on top. | It parses the query into a tree, so the code knows exactly which tables and columns are used. It can expand `SELECT *` using the schema and rewrite the query. | Regular expressions (do not understand query structure); `sqlparse` (tokens only); ZetaSQL (most exact, but no official Python package); asking a model to check the SQL (not deterministic). | Accepted |
+| 7 | PII: eight `users` columns are forbidden in the SQL guard, plus a filter on the final text. | A column that cannot be referenced has no bypass and never leaves the database. | Masking result columns by name; filtering the final text only; quasi-identifier rules and k-anonymity (deferred, see 5.2). | Accepted |
