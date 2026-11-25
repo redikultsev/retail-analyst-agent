@@ -28,3 +28,4 @@ To be added.
 
 - [docs/DESIGN.md](docs/DESIGN.md): architecture diagram, data flow, how each requirement is solved,
   error handling, and the reasons for each technology choice.
+- [docs/GLOSSARY.md](docs/GLOSSARY.md): the words used in the code and the documentation.
