@@ -1,12 +1,10 @@
-import json
 import logging
 from decimal import Decimal
-from typing import cast
 
 import pytest
 
 from retail_agent.policy import AllBrands, Brands, Policy
-from retail_agent.sql_executor import Estimate, Failed, FailureKind, Fetched, Row
+from retail_agent.query_executor import Estimate, Failed, FailureKind, Fetched, Row
 from retail_agent.sql_guard import Allowed, Rejected, check
 from retail_agent.warehouse import Answered, Refused, Warehouse
 
@@ -58,14 +56,14 @@ def run(
     *,
     max_bytes: int = 1_000_000,
     max_result_chars: int = 20_000,
-    redact: tuple[str, ...] = (PROJECT,),
+    secrets: tuple[str, ...] = (PROJECT,),
 ) -> Answered | Refused:
     warehouse = Warehouse(
         executor,
         policy,
         max_bytes=max_bytes,
         max_result_chars=max_result_chars,
-        redact=redact,
+        secrets=secrets,
     )
     return warehouse.run(sql)
 
@@ -81,7 +79,7 @@ def refused(outcome: Answered | Refused) -> Refused:
 
 
 def size(rows: tuple[Row, ...]) -> int:
-    return sum(len(json.dumps(row, ensure_ascii=False)) for row in rows)
+    return sum(len(str(cell)) for row in rows for cell in row)
 
 
 # --- the guard decides first
@@ -241,13 +239,12 @@ def test_column_names_and_struct_keys_are_cleaned_too() -> None:
     assert outcome.rows == ((1, {"name": "shirt"}),)
 
 
-def test_cell_of_an_unexpected_type_becomes_text() -> None:
-    row = cast(Row, (1, Decimal("9.99")))
+def test_cells_keep_the_values_the_executor_returned() -> None:
+    row = (1, Decimal("9.99"), None)
 
     outcome = answered(run(FakeExecutor(execute=fetched(row))))
 
-    assert outcome.rows == ((1, "9.99"),)
-    assert outcome.log.status == "ok"
+    assert outcome.rows == (row,)
 
 
 # --- failures: only compile-time error text may reach the model
@@ -336,10 +333,10 @@ def test_compile_error_without_usable_text_is_still_a_sql_error() -> None:
     assert outcome.message
 
 
-def test_empty_redact_string_changes_nothing() -> None:
+def test_empty_secret_changes_nothing() -> None:
     executor = FakeExecutor(dry_run=Failed("invalid_query", "Unrecognized name: nope"))
 
-    outcome = refused(run(executor, redact=("",)))
+    outcome = refused(run(executor, secrets=("",)))
 
     assert outcome.message == "Unrecognized name: nope"
     assert outcome.log.detail == "Unrecognized name: nope"
@@ -351,3 +348,27 @@ def test_failed_run_keeps_its_job_id() -> None:
     outcome = refused(run(executor))
 
     assert outcome.log.job_id == "job-9"
+
+
+def test_guard_crash_is_fixable_and_has_its_own_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def crash(*_: object) -> None:
+        raise RuntimeError("guard bug")
+
+    monkeypatch.setattr("retail_agent.sql_guard._parse", crash)
+
+    outcome = refused(run(FakeExecutor()))
+
+    assert outcome.log.status == "sql_error"
+    assert outcome.log.reject_code == "guard_error"
+
+
+def test_refusal_for_an_oversized_row_is_not_marked_as_truncated() -> None:
+    rows = tuple((n, "x" * 5_000) for n in range(MANAGER.row_limit + 1))
+
+    outcome = refused(run(FakeExecutor(execute=fetched(*rows)), max_result_chars=1_000))
+
+    assert outcome.log.status == "too_large"
+    assert outcome.log.truncated is None
+    assert outcome.log.detail == "one row is longer than 1000 characters"

@@ -1,19 +1,16 @@
-import json
 import logging
 import time
 from dataclasses import dataclass
 from typing import Literal, cast
 
 from retail_agent.policy import Policy
+from retail_agent.query_executor import Cell, Failed, Fetched, QueryExecutor, Row
 from retail_agent.sanitize import error_text, redact, safe_text
-from retail_agent.sql_executor import Cell, Failed, Fetched, Row, SqlExecutor
-from retail_agent.sql_guard import Allowed, Rejected, check
+from retail_agent.sql_guard import Allowed, RejectCode, Rejected, check
 
 logger = logging.getLogger(__name__)
 
-Status = Literal[
-    "ok",
-    "no_data",
+RefusalStatus = Literal[
     "denied",
     "sql_error",
     "runtime_error",
@@ -23,11 +20,14 @@ Status = Literal[
     "unavailable",
     "misconfigured",
 ]
-Truncated = Literal["rows", "size"]
+Status = Literal["ok", "no_data"] | RefusalStatus
+TruncatedBy = Literal["rows", "size"]
 
-REJECTS_THE_MODEL_CAN_FIX = frozenset({"sql_error", "multiple_statements", "unsupported_construct"})
+REJECTS_THE_MODEL_CAN_FIX: frozenset[RejectCode] = frozenset(
+    {"sql_error", "multiple_statements", "unsupported_construct", "guard_error"}
+)
 
-MESSAGES: dict[str, str] = {
+MESSAGES: dict[RefusalStatus, str] = {
     "denied": "This query is not allowed.",
     "sql_error": "The query is not valid BigQuery SQL. Check the names and syntax.",
     "runtime_error": (
@@ -51,12 +51,12 @@ MESSAGES: dict[str, str] = {
 @dataclass
 class QueryLog:
     original_sql: str
-    status: Status = "ok"
+    status: Status
     elapsed_ms: int = 0
     executed_sql: str | None = None
-    reject_code: str | None = None
+    reject_code: RejectCode | None = None
     row_count: int | None = None
-    truncated: Truncated | None = None
+    truncated: TruncatedBy | None = None
     bytes_processed: int | None = None
     cache_hit: bool = False
     job_id: str | None = None
@@ -77,30 +77,30 @@ class Refused:
 
 
 class _Refuse(Exception):
-    def __init__(self, status: Status, message: str | None = None) -> None:
+    def __init__(self, status: RefusalStatus, message: str | None = None) -> None:
         super().__init__(status)
-        self.status: Status = status
+        self.status: RefusalStatus = status
         self.message = message or MESSAGES[status]
 
 
 class Warehouse:
     def __init__(
         self,
-        executor: SqlExecutor,
+        executor: QueryExecutor,
         policy: Policy,
         *,
         max_bytes: int,
         max_result_chars: int,
-        redact: tuple[str, ...],
+        secrets: tuple[str, ...],
     ) -> None:
         self._executor = executor
         self._policy = policy
         self._max_bytes = max_bytes
         self._max_result_chars = max_result_chars
-        self._secrets = redact
+        self._secrets = secrets
 
     def run(self, sql: str) -> Answered | Refused:
-        log = QueryLog(original_sql=sql)
+        log = QueryLog(original_sql=sql, status="unavailable")
         started = time.monotonic()
         try:
             outcome = self._answer(sql, log)
@@ -163,26 +163,25 @@ class Warehouse:
         log.job_id = failed.job_id
 
     def _truncate(self, rows: tuple[Row, ...], log: QueryLog) -> tuple[Row, ...]:
-        if len(rows) > self._policy.row_limit:
-            rows = rows[: self._policy.row_limit]
-            log.truncated = "rows"
+        within_limit = rows[: self._policy.row_limit]
         kept: list[Row] = []
         size = 0
-        for row in rows:
-            size += len(json.dumps(row, ensure_ascii=False))
+        for row in within_limit:
+            size += sum(len(str(cell)) for cell in row)
             if size > self._max_result_chars:
                 break
             kept.append(row)
-        if rows and not kept:
+        if within_limit and not kept:
+            log.detail = f"one row is longer than {self._max_result_chars} characters"
             raise _Refuse("too_large")
-        if len(kept) < len(rows):
+        if len(kept) < len(within_limit):
             log.truncated = "size"
+        elif len(within_limit) < len(rows):
+            log.truncated = "rows"
         return tuple(kept)
 
 
-def _safe_cell(cell: object) -> Cell:
-    if cell is None or isinstance(cell, bool | int | float):
-        return cell
+def _safe_cell(cell: Cell) -> Cell:
     if isinstance(cell, str):
         return safe_text(cell)
     if isinstance(cell, list):
@@ -190,5 +189,4 @@ def _safe_cell(cell: object) -> Cell:
     if isinstance(cell, dict):
         items = cast(dict[object, object], cell).items()
         return {safe_text(str(key)): _safe_cell(value) for key, value in items}
-    logger.warning("executor returned a cell of type %s", type(cell).__name__)
-    return safe_text(str(cell))
+    return cell

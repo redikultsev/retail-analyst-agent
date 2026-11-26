@@ -3,7 +3,7 @@ from typing import Literal, Protocol
 
 from retail_agent.sql_guard import Allowed
 
-type Cell = bool | int | float | str | list[Cell] | dict[str, Cell] | None
+type Cell = object
 type Row = tuple[Cell, ...]
 
 FailureKind = Literal["invalid_query", "too_expensive", "timeout", "unavailable", "misconfigured"]
@@ -30,7 +30,7 @@ class Failed:
     job_id: str | None = None
 
 
-class SqlExecutor(Protocol):
+class QueryExecutor(Protocol):
     def dry_run(self, query: Allowed) -> Estimate | Failed: ...
 
     def execute(self, query: Allowed, max_rows: int) -> Fetched | Failed: ...

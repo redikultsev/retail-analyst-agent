@@ -1,9 +1,10 @@
 import logging
 from dataclasses import dataclass
+from typing import Literal
 
 import sqlglot
 from sqlglot import exp
-from sqlglot.errors import SqlglotError
+from sqlglot.errors import ParseError, SqlglotError
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
 from retail_agent.policy import AllBrands, Brands, Policy
@@ -29,6 +30,21 @@ GUARDED = "guarded"
 CTE_REFERENCE = "cte_reference"
 
 
+RejectCode = Literal[
+    "sql_error",
+    "multiple_statements",
+    "not_select",
+    "pii_column",
+    "hidden_column",
+    "function_not_allowed",
+    "table_function",
+    "table_not_allowed",
+    "unsupported_construct",
+    "guard_error",
+]
+UNPARSABLE = "The query could not be parsed as BigQuery SQL"
+
+
 @dataclass(frozen=True)
 class Allowed:
     sql: str
@@ -36,12 +52,12 @@ class Allowed:
 
 @dataclass(frozen=True)
 class Rejected:
-    code: str
+    code: RejectCode
     message: str
 
 
 class _Reject(Exception):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: RejectCode, message: str) -> None:
         super().__init__(message)
         self.verdict = Rejected(code, message)
 
@@ -60,15 +76,19 @@ def check(sql: str, policy: Policy) -> Allowed | Rejected:
     except Exception:
         logger.exception("sql_guard failed on a query it could not handle")
         return Rejected(
-            "unsupported_construct",
+            "guard_error",
             "The query uses a construct that cannot be verified. Rewrite it in a simpler form.",
         )
 
 
 def _parse(sql: str) -> exp.Query:
-    unparsable = _Reject("sql_error", "The query could not be parsed as BigQuery SQL.")
+    unparsable = _Reject("sql_error", f"{UNPARSABLE}.")
     try:
         statements = [s for s in sqlglot.parse(sql, read=DIALECT) if s is not None]
+    except ParseError as error:
+        place = error.errors[0]
+        where = f"near line {place['line']}, column {place['col']}"
+        raise _Reject("sql_error", f"{UNPARSABLE} {where}.") from None
     except SqlglotError:
         raise unparsable from None
     if not statements:

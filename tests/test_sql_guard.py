@@ -282,6 +282,12 @@ def test_internal_failure_is_rejected_and_logged(monkeypatch, caplog):
 
     verdict = rejected("SELECT id FROM users")
 
-    assert verdict.code == "unsupported_construct"
+    assert verdict.code == "guard_error"
     assert "boom" not in verdict.message
     assert "sql_guard failed" in caplog.text
+
+
+def test_parse_error_says_where_the_query_broke() -> None:
+    message = rejected("SELECT (1 FROM users").message
+
+    assert message == "The query could not be parsed as BigQuery SQL near line 1, column 14."
