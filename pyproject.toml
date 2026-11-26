@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.16.3",
     "rich>=15.0.0",
+    "sqlglot==30.35.0",
     "typer>=0.29.2",
 ]
 
