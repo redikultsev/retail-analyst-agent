@@ -18,7 +18,7 @@ class RichTerminal:
         return None
 
     def show(self, text: str) -> None:
-        self._console.print(text)
+        self._console.print(text, markup=False, highlight=False)
 
     def _read_line(self) -> str | None:
         try:

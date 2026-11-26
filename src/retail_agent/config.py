@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +23,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str | None = None
+    data_dir: Path = Path("data")
 
     @property
     def langfuse_enabled(self) -> bool:

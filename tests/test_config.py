@@ -1,26 +1,8 @@
+from pathlib import Path
+
 import pytest
 
 from retail_agent.config import ConfigError, load_settings
-
-VARIABLES = (
-    "GOOGLE_CLOUD_PROJECT",
-    "GOOGLE_API_KEY",
-    "LANGFUSE_PUBLIC_KEY",
-    "LANGFUSE_SECRET_KEY",
-    "LANGFUSE_HOST",
-)
-
-
-@pytest.fixture(autouse=True)
-def clean_env(monkeypatch):
-    for name in VARIABLES:
-        monkeypatch.delenv(name, raising=False)
-
-
-@pytest.fixture
-def required_env(monkeypatch):
-    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "acme-analytics")
-    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
 
 
 def load():
@@ -72,3 +54,13 @@ def test_langfuse_is_on_with_both_keys(required_env, monkeypatch):
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
 
     assert load().langfuse_enabled is True
+
+
+def test_data_directory_defaults_to_a_local_folder(required_env):
+    assert load().data_dir == Path("data")
+
+
+def test_data_directory_can_be_moved(required_env, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", "/var/lib/acme")
+
+    assert load().data_dir == Path("/var/lib/acme")
