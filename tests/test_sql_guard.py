@@ -1,7 +1,8 @@
 import pytest
 from sqlglot import exp, parse_one
 
-from retail_agent.sql_guard import AllBrands, Allowed, Brands, Policy, Rejected, check
+from retail_agent.policy import AllBrands, Brands, Policy
+from retail_agent.sql_guard import Allowed, Rejected, check
 
 PII = {
     "first_name",

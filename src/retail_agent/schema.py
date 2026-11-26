@@ -1,5 +1,3 @@
-"""The part of the dataset the agent may read."""
-
 CATALOG = "bigquery-public-data"
 DATASET = "thelook_ecommerce"
 

@@ -1,11 +1,3 @@
-"""Decides whether model-written SQL may run and rewrites it to read only permitted data.
-
-Data access is guaranteed by construction: every table is replaced by a subquery with the
-visible columns and the brand filter, and a query is allowed only if no other table is left.
-The column and function checks on top of that are a short deny-list: clear messages for
-columns the subquery already hides, and no calls that reach outside the dataset.
-"""
-
 import logging
 from dataclasses import dataclass
 
@@ -14,6 +6,7 @@ from sqlglot import exp
 from sqlglot.errors import SqlglotError
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
+from retail_agent.policy import AllBrands, Brands, Policy
 from retail_agent.schema import (
     CATALOG,
     DATASET,
@@ -23,7 +16,6 @@ from retail_agent.schema import (
 )
 
 logger = logging.getLogger(__name__)
-# sqlglot warns when it falls back to an opaque command; check() rejects that case itself.
 logging.getLogger("sqlglot").addFilter(
     lambda record: "Falling back to parsing as a 'Command'" not in record.getMessage()
 )
@@ -35,26 +27,6 @@ BUILTIN_NAMESPACES = frozenset({"HLL_COUNT"})
 PLAIN_TABLE_ARGS = frozenset({"this", "db", "catalog", "alias"})
 GUARDED = "guarded"
 CTE_REFERENCE = "cte_reference"
-
-
-@dataclass(frozen=True)
-class AllBrands:
-    pass
-
-
-@dataclass(frozen=True)
-class Brands:
-    names: frozenset[str]
-
-
-@dataclass(frozen=True)
-class Policy:
-    scope: AllBrands | Brands
-    row_limit: int = 500
-
-    def __post_init__(self) -> None:
-        if self.row_limit < 1:
-            raise ValueError("row_limit must be at least 1")
 
 
 @dataclass(frozen=True)
@@ -140,12 +112,10 @@ def _check_functions(query: exp.Query) -> None:
 
 
 def _is_system_variable(node: exp.Expr) -> bool:
-    # @@name parses as a parameter wrapped in a parameter.
     return isinstance(node, exp.Parameter) and isinstance(node.this, exp.Parameter)
 
 
 def _is_foreign_function(node: exp.Expr) -> bool:
-    """A function called through a project or dataset path, with or without backticks."""
     if isinstance(node, exp.Anonymous):
         return "." in node.name
     return (
@@ -163,7 +133,6 @@ def _replace_tables(query: exp.Query, policy: Policy) -> None:
 
 
 def _real_tables(query: exp.Query) -> list[exp.Table]:
-    """Tables read from the warehouse. References to a CTE are marked and left in place."""
     real: list[exp.Table] = []
     for scope in traverse_scope(query):
         for table in scope.tables:
@@ -240,14 +209,12 @@ def _has_brand_product(brands: frozenset[str]) -> exp.Condition:
 
 
 def _in_brand_items(column: str, item_column: str, brands: frozenset[str]) -> exp.Condition:
-    """The column matches `item_column` of an order item with a product of these brands."""
     order_items = _dataset_table("order_items")
     items = exp.select(item_column).from_(order_items).where(_has_brand_product(brands))
     return exp.column(column).isin(query=items)
 
 
 def _drop_dataset_path_from_columns(query: exp.Query) -> None:
-    """`thelook_ecommerce.users.id` becomes `users.id`, the alias of the replaced table."""
     for column in query.find_all(exp.Column):
         if column.db == DATASET and column.catalog in ("", CATALOG):
             column.set("db", None)
