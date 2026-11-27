@@ -38,6 +38,11 @@ Fill in `.env`:
 | `QUERY_TIMEOUT_S` | no | How long one query may run, 10 to 600 seconds. Default: 30. |
 | `RESULT_MAX_ROWS` | no | Rows kept from one result. Default: 500. |
 | `RESULT_MAX_CHARS` | no | Characters kept from one result. Default: 20000. |
+| `GEMINI_MODEL` | no | The Gemini model. Default: `gemini-4-hydrogen`. |
+| `GEMINI_FALLBACK_MODEL` | no | The model used when the first one fails. Default: `gemini-3.5-flash-lite`. |
+| `AGENT_MAX_MODEL_CALLS` | no | Model calls for one question. Default: 10. |
+| `AGENT_MAX_QUERIES` | no | Queries for one question. Default: 6. |
+| `AGENT_TIMEOUT_S` | no | Seconds for one question. Default: 120. |
 
 ## Commands
 
@@ -53,7 +58,7 @@ uv run retail-agent chat --user ben
 ```
 
 Starts a chat as that person. It first checks that BigQuery answers and that the person's
-brands are in the data. The chat does not answer questions yet.
+brands are in the data. Then you ask questions in plain language.
 
 ```bash
 uv run retail-agent sql "SELECT name, retail_price FROM products LIMIT 5" --user ben

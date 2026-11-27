@@ -4,9 +4,7 @@ from rich.text import Text
 
 from retail_agent.policy import AllBrands, Brands
 from retail_agent.terminal import print_plain
-from retail_agent.warehouse import Answered, QueryLog, Refused
-
-HIDDEN_DETAIL = "[hidden: may hold values outside this user's brands]"
+from retail_agent.warehouse import Answered, QueryLog, Refused, shareable_detail
 
 
 def print_outcome(console: Console, outcome: Answered | Refused, scope: AllBrands | Brands) -> None:
@@ -22,13 +20,7 @@ def print_outcome(console: Console, outcome: Answered | Refused, scope: AllBrand
         console.print(table)
     else:
         print_plain(console, outcome.message, soft_wrap=True)
-    print_plain(console, _log_line(log, _detail(log, scope)), soft_wrap=True)
-
-
-def _detail(log: QueryLog, scope: AllBrands | Brands) -> str | None:
-    if log.status == "runtime_error" and not isinstance(scope, AllBrands):
-        return HIDDEN_DETAIL
-    return log.detail
+    print_plain(console, _log_line(log, shareable_detail(log, scope)), soft_wrap=True)
 
 
 def _log_line(log: QueryLog, detail: str | None) -> str:

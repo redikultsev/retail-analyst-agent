@@ -14,6 +14,7 @@ from retail_agent.schema import (
     HIDDEN_FROM_BRAND_SCOPE,
     PII_COLUMNS,
     VISIBLE_COLUMNS,
+    visible_columns,
 )
 
 logger = logging.getLogger(__name__)
@@ -186,12 +187,7 @@ def _permitted_name(table: exp.Table) -> str:
 
 
 def _guarded_table(name: str, alias: str, scope: AllBrands | Brands) -> exp.Subquery:
-    columns = [
-        column
-        for column in VISIBLE_COLUMNS[name]
-        if isinstance(scope, AllBrands) or column not in HIDDEN_FROM_BRAND_SCOPE
-    ]
-    select = exp.select(*columns).from_(_dataset_table(name))
+    select = exp.select(*visible_columns(name, scope)).from_(_dataset_table(name))
     if isinstance(scope, Brands):
         select = select.where(_brand_filter(name, scope.names))
     for table in select.find_all(exp.Table):

@@ -1,7 +1,8 @@
 from decimal import Decimal
 
 import pytest
-from fakes import FakeExecutor, brands
+from fakes import BrokenModel, FakeExecutor, ScriptedModel, brands
+from langchain_core.messages import AIMessage
 from typer.testing import CliRunner
 
 from retail_agent.cli import app
@@ -30,6 +31,14 @@ def warehouse(monkeypatch):
     return answer_with
 
 
+@pytest.fixture(autouse=True)
+def model(monkeypatch):
+    def build(**options):
+        return ScriptedModel([AIMessage("Revenue is up.")])
+
+    monkeypatch.setattr("retail_agent.di.ChatGoogleGenerativeAI", build)
+
+
 def test_chat_names_missing_variables_and_exits_with_code_2():
     result = runner.invoke(app, ["chat", "--user", "alice"])
 
@@ -38,11 +47,11 @@ def test_chat_names_missing_variables_and_exits_with_code_2():
     assert "GOOGLE_API_KEY" in result.output
 
 
-def test_chat_session_runs_until_exit(required_env, warehouse):
+def test_chat_answers_a_question_and_runs_until_exit(required_env, warehouse):
     result = runner.invoke(app, ["chat", "--user", "alice"], input="monthly revenue\nexit\n")
 
     assert result.exit_code == 0
-    assert "not connected yet" in result.output
+    assert "Revenue is up." in result.output
 
 
 def test_chat_requires_a_user(required_env):
@@ -197,3 +206,28 @@ def test_chat_says_it_is_checking_access_before_the_greeting(required_env, wareh
     result = runner.invoke(app, ["chat", "--user", "ben"], input="exit\n")
 
     assert result.output.index("Checking access") < result.output.index("Signed in")
+
+
+def test_chat_uses_the_models_named_in_the_settings(required_env, warehouse, monkeypatch):
+    def build(model, **options):
+        return ScriptedModel([AIMessage(f"answered by {model}")])
+
+    monkeypatch.setattr("retail_agent.di.ChatGoogleGenerativeAI", build)
+    monkeypatch.setenv("GEMINI_MODEL", "main-model")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODEL", "spare-model")
+
+    result = runner.invoke(app, ["chat", "--user", "alice"], input="monthly revenue\nexit\n")
+
+    assert "answered by main-model" in result.output
+
+
+def test_a_failed_answer_goes_to_the_log_file_and_not_to_the_screen(
+    required_env, warehouse, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("retail_agent.di.ChatGoogleGenerativeAI", lambda **options: BrokenModel())
+
+    result = runner.invoke(app, ["chat", "--user", "alice"], input="monthly revenue\nexit\n")
+
+    assert "I could not answer that" in result.output
+    assert "Traceback" not in result.output
+    assert "the model is down" in (tmp_path / "data" / "retail_agent.log").read_text()

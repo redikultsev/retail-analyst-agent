@@ -1,11 +1,16 @@
+import logging
 from typing import Protocol
 
 from retail_agent.policy import describe
 from retail_agent.profile import Profile
 
+logger = logging.getLogger(__name__)
+
+FAILED_REPLY = "I could not answer that. Please try again or rephrase the question."
+
 
 class Agent(Protocol):
-    def reply(self, message: str) -> str: ...
+    async def reply(self, message: str) -> str: ...
 
 
 class Terminal(Protocol):
@@ -15,6 +20,8 @@ class Terminal(Protocol):
 
     def show(self, text: str) -> None: ...
 
+    def show_reply(self, markdown: str) -> None: ...
+
 
 class Chat:
     def __init__(self, agent: Agent, terminal: Terminal, profile: Profile) -> None:
@@ -22,10 +29,16 @@ class Chat:
         self._terminal = terminal
         self._profile = profile
 
-    def run(self) -> None:
+    async def run(self) -> None:
         self._terminal.show(greeting(self._profile))
         while (message := self._terminal.read()) is not None:
-            self._terminal.show(self._agent.reply(message))
+            try:
+                reply = await self._agent.reply(message)
+            except Exception:
+                logger.exception("the agent failed on a message")
+                self._terminal.show(FAILED_REPLY)
+            else:
+                self._terminal.show_reply(reply)
 
 
 def greeting(profile: Profile) -> str:

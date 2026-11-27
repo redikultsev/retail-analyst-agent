@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     query_timeout_s: float = Field(default=30.0, ge=10, le=600)
     result_max_chars: PositiveInt = 20_000
     result_max_rows: PositiveInt = 500
+    gemini_model: str = "gemini-4-hydrogen"
+    gemini_fallback_model: str = "gemini-3.5-flash-lite"
+    agent_max_model_calls: PositiveInt = 10
+    agent_max_queries: PositiveInt = 6
+    agent_timeout_s: float = Field(default=120.0, gt=0, le=3600)
 
     @property
     def langfuse_enabled(self) -> bool:

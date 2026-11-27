@@ -1,7 +1,12 @@
+from collections.abc import Iterable
 from typing import Any
 
 from google.cloud.bigquery import SchemaField
 from google.cloud.bigquery.table import Row
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatResult
+from pydantic import Field
 
 from retail_agent.query_executor import Fetched
 from retail_agent.sql_guard import AllowedQuery
@@ -80,6 +85,35 @@ class StubClient:
         self.options = options
         if self._error:
             raise self._error
+
+
+class ScriptedModel(GenericFakeChatModel):
+    """Plays the scripted messages in order and records what it was shown."""
+
+    seen: list[str] = Field(default_factory=list)
+
+    def __init__(self, script: Iterable[AIMessage]) -> None:
+        super().__init__(messages=iter(script))
+
+    def bind_tools(self, tools: Any, **kwargs: Any) -> "ScriptedModel":
+        return self
+
+    def _generate(self, messages: list[BaseMessage], *args: Any, **kwargs: Any) -> ChatResult:
+        self.seen.append("\n".join(str(message.content) for message in messages))
+        return super()._generate(messages, *args, **kwargs)
+
+
+class BrokenModel(ScriptedModel):
+    def __init__(self) -> None:
+        super().__init__([])
+
+    def _generate(self, messages: list[BaseMessage], *args: Any, **kwargs: Any) -> ChatResult:
+        raise ConnectionError("the model is down")
+
+
+def sql_call(sql: str, number: int = 0) -> AIMessage:
+    call = {"name": "run_sql", "args": {"sql": sql}, "id": f"call-{number}"}
+    return AIMessage(content="", tool_calls=[call])
 
 
 def brands(*names: str) -> Fetched:

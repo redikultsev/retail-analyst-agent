@@ -1,4 +1,5 @@
 from rich.console import Console
+from rich.markdown import Markdown
 
 PROMPT = "[bold cyan]>[/] "
 EXIT_WORDS = frozenset({"exit", "quit"})
@@ -19,6 +20,9 @@ class RichTerminal:
 
     def show(self, text: str) -> None:
         print_plain(self._console, text)
+
+    def show_reply(self, markdown: str) -> None:
+        self._console.print(Markdown(markdown))
 
     def _read_line(self) -> str | None:
         try:

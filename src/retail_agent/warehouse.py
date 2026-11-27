@@ -22,6 +22,8 @@ RefusalStatus = Literal[
 Status = Literal["ok", "no_data"] | RefusalStatus
 TruncatedBy = Literal["rows", "size"]
 
+HIDDEN_DETAIL = "[hidden: may hold values outside this user's brands]"
+
 REJECTS_THE_MODEL_CAN_FIX: frozenset[RejectCode] = frozenset(
     {"sql_error", "multiple_statements", "unsupported_construct", "guard_error"}
 )
@@ -115,6 +117,13 @@ class Warehouse:
             log.detail = self._log_text(_describe(error))
             outcome = Refused(MESSAGES["unavailable"], log)
         log.elapsed_ms = int((time.monotonic() - started) * 1000)
+        if isinstance(outcome, Refused):
+            logger.warning(
+                "query refused: status=%s reject_code=%s detail=%s",
+                log.status,
+                log.reject_code,
+                shareable_detail(log, self.scope),
+            )
         return outcome
 
     async def _answer(self, sql: str, log: QueryLog) -> Answered:
@@ -184,6 +193,12 @@ class Warehouse:
         elif len(within_limit) < len(rows):
             log.truncated = "rows"
         return tuple(kept)
+
+
+def shareable_detail(log: QueryLog, scope: AllBrands | Brands) -> str | None:
+    if log.status == "runtime_error" and not isinstance(scope, AllBrands):
+        return HIDDEN_DETAIL
+    return log.detail
 
 
 def _describe(error: Exception) -> str:

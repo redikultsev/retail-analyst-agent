@@ -1,3 +1,5 @@
+from retail_agent.policy import AllBrands, Brands
+
 CATALOG = "bigquery-public-data"
 DATASET = "thelook_ecommerce"
 
@@ -64,3 +66,10 @@ PII_COLUMNS = frozenset(
 
 # orders.num_of_item counts items of every brand in the order.
 HIDDEN_FROM_BRAND_SCOPE = frozenset({"num_of_item"})
+
+
+def visible_columns(table: str, scope: AllBrands | Brands) -> tuple[str, ...]:
+    columns = VISIBLE_COLUMNS[table]
+    if isinstance(scope, AllBrands):
+        return columns
+    return tuple(column for column in columns if column not in HIDDEN_FROM_BRAND_SCOPE)

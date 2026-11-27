@@ -359,3 +359,21 @@ async def test_refusal_for_an_oversized_row_is_not_marked_as_truncated() -> None
     assert outcome.log.status == "too_large"
     assert outcome.log.truncated is None
     assert outcome.log.detail == "one row is longer than 1000 characters"
+
+
+async def test_every_refusal_is_logged_with_its_cause(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        await run(FakeExecutor(estimate=RuntimeError("no credentials found")))
+
+    assert "status=unavailable" in caplog.text
+    assert "no credentials found" in caplog.text
+
+
+async def test_log_file_never_gets_the_runtime_error_text_of_a_brand_manager(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        await run(FakeExecutor(fetch=QueryRejected("LEAK:36/China")))
+
+    assert "status=runtime_error" in caplog.text
+    assert "LEAK" not in caplog.text
