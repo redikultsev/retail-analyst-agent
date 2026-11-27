@@ -47,3 +47,14 @@ def test_brand_manager_is_told_their_brands() -> None:
 def test_brand_manager_is_not_offered_the_column_that_counts_other_brands() -> None:
     assert "num_of_item" not in system_prompt(BEN, TODAY)
     assert "num_of_item" in system_prompt(ALICE, TODAY)
+
+
+def test_prompt_gives_the_report_format_and_when_to_save() -> None:
+    text = system_prompt(ALICE, TODAY)
+
+    assert "Summary, Findings, Action items, Data used" in text
+    assert "only when the person asks" in text
+
+
+def test_prompt_says_the_person_confirms_a_deletion() -> None:
+    assert "The person confirms the deletion, not you" in system_prompt(BEN, TODAY)

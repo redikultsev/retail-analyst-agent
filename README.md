@@ -60,6 +60,21 @@ uv run retail-agent chat --user ben
 Starts a chat as that person. It first checks that BigQuery answers and that the person's
 brands are in the data. Then you ask questions in plain language.
 
+You can ask it to save a report, to list your reports and to delete them, for example
+"Delete all reports mentioning Diesel" or "Delete all the reports we made in this
+conversation". Nothing is deleted before you agree. The chat shows the reports, waits for
+your `y`, and only then are exactly the reports it showed deleted:
+
+```text
+> Delete all reports mentioning Diesel
+  1. Top 3 Products by Revenue in 2025 (2026-11-27)
+Delete this report? [y/N] y
+The report was deleted.
+```
+
+Any other answer deletes nothing. You see and delete only your own reports. A deleted report
+is marked as deleted in the local database, not erased.
+
 ```bash
 uv run retail-agent sql "SELECT name, retail_price FROM products LIMIT 5" --user ben
 ```

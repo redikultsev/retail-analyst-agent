@@ -6,11 +6,12 @@ from langchain_core.tools import BaseTool
 from retail_agent.policy import AllBrands, Brands, describe
 from retail_agent.warehouse import Answered, Refused, Warehouse
 
+RUN_SQL = "run_sql"
 NOT_FULL = "This is not the full result: do not present totals or counts from it."
 
 
 def sql_tool(warehouse: Warehouse) -> BaseTool:
-    @tool
+    @tool(RUN_SQL)
     async def run_sql(sql: str) -> str:
         """Run one BigQuery SELECT over orders, order_items, products and users.
 

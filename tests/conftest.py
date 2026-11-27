@@ -1,5 +1,7 @@
 import pytest
 
+from retail_agent.report_repository import ReportRepository
+
 VARIABLES = (
     "GOOGLE_CLOUD_PROJECT",
     "GOOGLE_API_KEY",
@@ -30,3 +32,8 @@ def clean_env(monkeypatch, tmp_path):
 def required_env(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "acme-analytics")
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+
+
+@pytest.fixture
+def reports(tmp_path) -> ReportRepository:
+    return ReportRepository(tmp_path / "retail_agent.db")

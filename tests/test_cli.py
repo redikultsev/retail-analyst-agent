@@ -1,3 +1,4 @@
+import sqlite3
 from decimal import Decimal
 
 import pytest
@@ -8,6 +9,7 @@ from typer.testing import CliRunner
 from retail_agent.cli import app
 from retail_agent.policy import Policy
 from retail_agent.query_executor import Fetched, QueryRejected
+from retail_agent.report_repository import ReportsUnavailable
 from retail_agent.warehouse import Warehouse
 
 runner = CliRunner()
@@ -231,3 +233,18 @@ def test_a_failed_answer_goes_to_the_log_file_and_not_to_the_screen(
     assert "I could not answer that" in result.output
     assert "Traceback" not in result.output
     assert "the model is down" in (tmp_path / "data" / "retail_agent.log").read_text()
+
+
+def test_unusable_report_database_is_reported_without_a_traceback(
+    required_env, warehouse, monkeypatch
+):
+    def broken(database):
+        raise ReportsUnavailable(database, sqlite3.OperationalError("database is locked"))
+
+    monkeypatch.setattr("retail_agent.di.ReportRepository", broken)
+
+    result = runner.invoke(app, ["chat", "--user", "ben"], input="exit\n")
+
+    assert result.exit_code == 2
+    assert "report database" in result.output
+    assert "Traceback" not in result.output

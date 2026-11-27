@@ -56,6 +56,16 @@ async def test_estimate_without_a_number_is_an_error(connect: Connect) -> None:
         await connect(StubClient(estimate=None)).estimate_bytes(QUERY)
 
 
+@pytest.mark.parametrize("statement_type", ["DELETE", "CREATE_TABLE_AS_SELECT", "SCRIPT"])
+async def test_estimate_rejects_anything_bigquery_does_not_call_a_select(
+    connect: Connect, statement_type: str
+) -> None:
+    client = StubClient(statement_type=statement_type)
+
+    with pytest.raises(QueryRejected, match="Only SELECT"):
+        await connect(client).estimate_bytes(QUERY)
+
+
 async def test_fetch_returns_columns_rows_bytes_and_the_job_id(connect: Connect) -> None:
     client = StubClient(rows=[(1, Decimal("9.99")), (2, None)])
 

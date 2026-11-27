@@ -9,6 +9,7 @@ from retail_agent.di import build_chat, build_console, build_profile_repository,
 from retail_agent.policy import Brands, describe
 from retail_agent.profile import Profile
 from retail_agent.profile_repository import ProfileError
+from retail_agent.report_repository import ReportsUnavailable
 from retail_agent.sql_report import print_outcome
 from retail_agent.startup_check import WarehouseNotReady, verify
 from retail_agent.warehouse import Refused, Warehouse
@@ -35,7 +36,11 @@ def chat(user: User) -> None:
     missing = _missing_brands(warehouse)
     if missing:
         typer.echo(f"Warning: brands not found in the data: {describe(Brands(missing))}.")
-    asyncio.run(build_chat(settings, profile, warehouse).run())
+    try:
+        session = build_chat(settings, profile, warehouse)
+    except ReportsUnavailable as error:
+        _fail(str(error))
+    asyncio.run(session.run())
 
 
 @app.command()

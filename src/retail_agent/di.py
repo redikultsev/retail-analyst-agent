@@ -1,4 +1,6 @@
 from datetime import date
+from pathlib import Path
+from uuid import uuid4
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from rich.console import Console
@@ -11,6 +13,9 @@ from retail_agent.policy import Policy
 from retail_agent.profile import Profile
 from retail_agent.profile_repository import ProfileRepository
 from retail_agent.prompt import system_prompt
+from retail_agent.report_repository import ReportRepository
+from retail_agent.report_tools import DELETE_REPORTS, report_tools
+from retail_agent.sql_tool import RUN_SQL, sql_tool
 from retail_agent.terminal import RichTerminal
 from retail_agent.warehouse import Warehouse
 
@@ -19,7 +24,7 @@ MODEL_TIMEOUT_S = 60
 
 
 def build_profile_repository(settings: Settings) -> ProfileRepository:
-    return ProfileRepository(settings.data_dir / "retail_agent.db")
+    return ProfileRepository(_database(settings))
 
 
 def build_console() -> Console:
@@ -27,18 +32,22 @@ def build_console() -> Console:
 
 
 def build_chat(settings: Settings, profile: Profile, warehouse: Warehouse) -> Chat:
-    agent = build_agent(settings, profile, warehouse)
+    reports = ReportRepository(_database(settings))
+    agent = build_agent(settings, profile, warehouse, reports)
     return Chat(agent, RichTerminal(build_console()), profile)
 
 
-def build_agent(settings: Settings, profile: Profile, warehouse: Warehouse) -> LangChainAgent:
+def build_agent(
+    settings: Settings, profile: Profile, warehouse: Warehouse, reports: ReportRepository
+) -> LangChainAgent:
+    conversation_id = str(uuid4())
     return LangChainAgent(
         _build_model(settings, settings.gemini_model),
         _build_model(settings, settings.gemini_fallback_model),
-        warehouse,
+        [sql_tool(warehouse), *report_tools(reports, profile.key, conversation_id)],
         system_prompt(profile, date.today()),
         max_model_calls=settings.agent_max_model_calls,
-        max_queries=settings.agent_max_queries,
+        max_tool_calls={RUN_SQL: settings.agent_max_queries, DELETE_REPORTS: 1},
         timeout_s=settings.agent_timeout_s,
     )
 
@@ -56,6 +65,10 @@ def build_warehouse(settings: Settings, profile: Profile) -> Warehouse:
         max_result_chars=settings.result_max_chars,
         secrets=(settings.google_cloud_project, settings.google_api_key.get_secret_value()),
     )
+
+
+def _database(settings: Settings) -> Path:
+    return settings.data_dir / "retail_agent.db"
 
 
 def _build_model(settings: Settings, name: str) -> ChatGoogleGenerativeAI:

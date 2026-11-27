@@ -46,3 +46,35 @@ def test_shows_text_without_adding_colours():
     RichTerminal(Console(file=output, force_terminal=True)).show("Revenue 100, 'Diesel'")
 
     assert output.getvalue() == "Revenue 100, 'Diesel'\n"
+
+
+@pytest.mark.parametrize("answer", ["y", "yes", "Y", " YES "])
+def test_only_a_clear_yes_confirms(typed, answer):
+    assert typed(f"{answer}\n").confirm("Delete this report?") is True
+
+
+@pytest.mark.parametrize("answer", ["", "n", "no", "yep", "delete", "exit"])
+def test_anything_else_does_not_confirm(typed, answer):
+    assert typed(f"{answer}\n").confirm("Delete this report?") is False
+
+
+def test_closed_input_does_not_confirm(typed):
+    assert typed("").confirm("Delete this report?") is False
+
+
+def test_confirm_shows_the_question_as_written(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("n\n"))
+    output = StringIO()
+
+    RichTerminal(Console(file=output)).confirm("  1. Diesel [bold]\nDelete this report?")
+
+    assert "  1. Diesel [bold]\nDelete this report? [y/N]" in output.getvalue()
+
+
+def test_the_answer_is_typed_on_the_line_of_the_question(monkeypatch):
+    monkeypatch.setattr("sys.stdin", StringIO("n\n"))
+    output = StringIO()
+
+    RichTerminal(Console(file=output)).confirm("Delete this report?")
+
+    assert output.getvalue() == "Delete this report? [y/N] "

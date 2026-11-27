@@ -43,6 +43,9 @@ class BigQueryExecutor:
                 retry=self._retry,
                 job_retry=None,
             )
+        # A second read-only check that does not depend on our own SQL parser.
+        if job.statement_type != "SELECT":
+            raise QueryRejected("Only SELECT statements can run.")
         if job.total_bytes_processed is None:
             raise RuntimeError("BigQuery returned no estimate for the dry run")
         return job.total_bytes_processed

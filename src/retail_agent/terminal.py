@@ -1,8 +1,10 @@
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.text import Text
 
 PROMPT = "[bold cyan]>[/] "
 EXIT_WORDS = frozenset({"exit", "quit"})
+YES_WORDS = frozenset({"y", "yes"})
 
 
 class RichTerminal:
@@ -24,9 +26,13 @@ class RichTerminal:
     def show_reply(self, markdown: str) -> None:
         self._console.print(Markdown(markdown))
 
-    def _read_line(self) -> str | None:
+    def confirm(self, question: str) -> bool:
+        answer = self._read_line(Text(f"{question} [y/N] "))
+        return answer is not None and answer.strip().lower() in YES_WORDS
+
+    def _read_line(self, prompt: str | Text = PROMPT) -> str | None:
         try:
-            return self._console.input(PROMPT)
+            return self._console.input(prompt)
         except (EOFError, KeyboardInterrupt):
             self._console.print()
             return None
