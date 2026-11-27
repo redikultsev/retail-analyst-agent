@@ -64,3 +64,45 @@ def test_data_directory_can_be_moved(required_env, monkeypatch):
     monkeypatch.setenv("DATA_DIR", "/var/lib/acme")
 
     assert load().data_dir == Path("/var/lib/acme")
+
+
+def test_query_and_result_limits_have_defaults(required_env):
+    settings = load()
+
+    assert settings.query_max_bytes == 1_000_000_000
+    assert settings.query_timeout_s == 30
+    assert settings.result_max_chars == 20_000
+    assert settings.result_max_rows == 500
+
+
+def test_limits_can_be_changed(required_env, monkeypatch):
+    monkeypatch.setenv("QUERY_MAX_BYTES", "5000")
+    monkeypatch.setenv("QUERY_TIMEOUT_S", "2.5")
+
+    settings = load()
+
+    assert settings.query_max_bytes == 5_000
+    assert settings.query_timeout_s == 2.5
+
+
+@pytest.mark.parametrize(
+    "name", ["QUERY_MAX_BYTES", "QUERY_TIMEOUT_S", "RESULT_MAX_CHARS", "RESULT_MAX_ROWS"]
+)
+@pytest.mark.parametrize("value", ["0", "-1", "many"])
+def test_limit_that_is_not_a_positive_number_is_named(required_env, monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ConfigError) as raised:
+        load()
+
+    assert raised.value.missing == [name]
+
+
+@pytest.mark.parametrize("value", ["inf", "601"])
+def test_timeout_has_an_upper_bound(required_env, monkeypatch, value):
+    monkeypatch.setenv("QUERY_TIMEOUT_S", value)
+
+    with pytest.raises(ConfigError) as raised:
+        load()
+
+    assert raised.value.missing == ["QUERY_TIMEOUT_S"]

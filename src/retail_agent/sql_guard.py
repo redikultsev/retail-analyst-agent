@@ -46,7 +46,7 @@ UNPARSABLE = "The query could not be parsed as BigQuery SQL"
 
 
 @dataclass(frozen=True)
-class Allowed:
+class AllowedQuery:
     sql: str
 
 
@@ -62,7 +62,7 @@ class _Reject(Exception):
         self.verdict = Rejected(code, message)
 
 
-def check(sql: str, policy: Policy) -> Allowed | Rejected:
+def check(sql: str, policy: Policy) -> AllowedQuery | Rejected:
     try:
         query = _parse(sql)
         _check_columns(query, policy)
@@ -70,7 +70,7 @@ def check(sql: str, policy: Policy) -> Allowed | Rejected:
         _replace_tables(query, policy)
         _require_no_other_tables(query)
         _apply_row_limit(query, policy.row_limit)
-        return Allowed(query.sql(dialect=DIALECT))
+        return AllowedQuery(query.sql(dialect=DIALECT))
     except _Reject as reject:
         return reject.verdict
     except Exception:

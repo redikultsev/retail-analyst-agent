@@ -18,7 +18,7 @@ class RichTerminal:
         return None
 
     def show(self, text: str) -> None:
-        self._console.print(text, markup=False, highlight=False)
+        print_plain(self._console, text)
 
     def _read_line(self) -> str | None:
         try:
@@ -26,3 +26,7 @@ class RichTerminal:
         except (EOFError, KeyboardInterrupt):
             self._console.print()
             return None
+
+
+def print_plain(console: Console, text: str, *, soft_wrap: bool = False) -> None:
+    console.print(text, markup=False, highlight=False, soft_wrap=soft_wrap)

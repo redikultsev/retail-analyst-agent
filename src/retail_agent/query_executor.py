@@ -1,17 +1,10 @@
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Protocol
 
-from retail_agent.sql_guard import Allowed
+from retail_agent.sql_guard import AllowedQuery
 
 type Cell = object
 type Row = tuple[Cell, ...]
-
-FailureKind = Literal["invalid_query", "too_expensive", "timeout", "unavailable", "misconfigured"]
-
-
-@dataclass(frozen=True)
-class Estimate:
-    bytes_processed: int
 
 
 @dataclass(frozen=True)
@@ -19,18 +12,20 @@ class Fetched:
     columns: tuple[str, ...]
     rows: tuple[Row, ...]
     bytes_processed: int | None
-    cache_hit: bool = False
     job_id: str | None = None
 
 
-@dataclass(frozen=True)
-class Failed:
-    kind: FailureKind
-    detail: str
-    job_id: str | None = None
+class QueryRejected(Exception):
+    """The warehouse read the query and refused it. The text is the warehouse's own."""
 
 
 class QueryExecutor(Protocol):
-    def dry_run(self, query: Allowed) -> Estimate | Failed: ...
+    """Runs guarded queries.
 
-    def execute(self, query: Allowed, max_rows: int) -> Fetched | Failed: ...
+    Raises QueryRejected when the warehouse refuses the query itself and TimeoutError
+    when `fetch` waits too long. Any other exception means the warehouse cannot be reached.
+    """
+
+    async def estimate_bytes(self, query: AllowedQuery) -> int: ...
+
+    async def fetch(self, query: AllowedQuery, max_rows: int) -> Fetched: ...

@@ -17,10 +17,13 @@ def redact(text: str, secrets: tuple[str, ...]) -> str:
     return PROJECT_PATH.sub(f"projects/{REDACTED}", text)
 
 
+def one_line(text: str) -> str:
+    return " ".join(text.split())
+
+
 def error_text(detail: str, secrets: tuple[str, ...]) -> str:
     text = QUERY_POSITION.sub("", URL.sub("", detail))
-    text = " ".join(redact(text, secrets).split())
-    return text[:MAX_ERROR_CHARS]
+    return one_line(redact(text, secrets))[:MAX_ERROR_CHARS]
 
 
 def safe_text(text: str) -> str:

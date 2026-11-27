@@ -1,260 +1,177 @@
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Any
 
 import pytest
+from fakes import StubClient
 from google.api_core import exceptions as api
 from google.auth import exceptions as auth
-from google.cloud.bigquery import SchemaField
-from google.cloud.bigquery.table import Row
 
-from retail_agent.bigquery_executor import BigQueryExecutor, classify
-from retail_agent.query_executor import Estimate, Failed, Fetched
-from retail_agent.sql_guard import Allowed
+from retail_agent.bigquery_executor import BigQueryExecutor
+from retail_agent.query_executor import Fetched, QueryRejected
+from retail_agent.sql_guard import AllowedQuery
 
-QUERY = Allowed("SELECT id, price FROM items")
+QUERY = AllowedQuery("SELECT id, price FROM items")
+TIMEOUT_S = 30
 
-
-# --- BigQuery errors become failure kinds
+type Connect = Callable[[StubClient], BigQueryExecutor]
 
 
 def api_error(cls: type[api.GoogleAPICallError], reason: str) -> api.GoogleAPICallError:
     return cls("wrapper text", errors=[{"reason": reason, "message": f"cause: {reason}"}])
 
 
-@pytest.mark.parametrize(
-    ("error", "kind"),
-    [
-        (api_error(api.BadRequest, "invalidQuery"), "invalid_query"),
-        (api_error(api.InternalServerError, "bytesBilledLimitExceeded"), "too_expensive"),
-        (api_error(api.BadRequest, "resourcesExceeded"), "too_expensive"),
-        (api_error(api.Forbidden, "responseTooLarge"), "too_expensive"),
-        (api_error(api.GoogleAPICallError, "stopped"), "timeout"),
-        (api_error(api.Forbidden, "accessDenied"), "misconfigured"),
-        (api_error(api.NotFound, "notFound"), "misconfigured"),
-        (api_error(api.Forbidden, "billingNotEnabled"), "misconfigured"),
-        (api_error(api.Forbidden, "quotaExceeded"), "unavailable"),
-        (api_error(api.Forbidden, "rateLimitExceeded"), "unavailable"),
-        (api_error(api.InternalServerError, "backendError"), "unavailable"),
-        (api_error(api.BadRequest, "badRequest"), "misconfigured"),
-        (api_error(api.BadRequest, "somethingNew"), "invalid_query"),
-        (api_error(api.Forbidden, "somethingNew"), "misconfigured"),
-        (api_error(api.InternalServerError, "somethingNew"), "unavailable"),
-    ],
-)
-def test_error_reason_decides_the_failure_kind(error: Exception, kind: str) -> None:
-    failed = classify(error)
-
-    assert failed.kind == kind
-    assert failed.detail == error.errors[0]["message"]  # type: ignore[attr-defined]
+def new_executor() -> BigQueryExecutor:
+    return BigQueryExecutor("acme-project", max_bytes_billed=1_000_000, timeout_s=TIMEOUT_S)
 
 
-@pytest.mark.parametrize(
-    ("error", "kind"),
-    [
-        (TimeoutError(), "timeout"),
-        (api.DeadlineExceeded("too slow"), "timeout"),
-        (api.RetryError("gave up", cause=None), "timeout"),
-        (auth.DefaultCredentialsError("no credentials"), "misconfigured"),
-        (auth.RefreshError("token expired"), "misconfigured"),
-        (api.Forbidden("no reason given"), "misconfigured"),
-        (api.ServiceUnavailable("down"), "unavailable"),
-        (RuntimeError("anything else"), "unavailable"),
-    ],
-)
-def test_error_without_a_reason_is_classified_by_its_type(error: Exception, kind: str) -> None:
-    failed = classify(error)
+@pytest.fixture
+def connect(monkeypatch: pytest.MonkeyPatch) -> Connect:
+    def executor_for(client: StubClient) -> BigQueryExecutor:
+        monkeypatch.setattr(
+            "retail_agent.bigquery_executor.bigquery.Client", lambda project: client
+        )
+        return new_executor()
 
-    assert failed.kind == kind
-    assert failed.detail == f"{type(error).__name__}: {error}".removesuffix(": ")
+    return executor_for
 
 
-class OddError(Exception):
-    def errors(self) -> list[str]:
-        return ["not the BigQuery shape"]
+async def call(executor: BigQueryExecutor, phase: str) -> object:
+    if phase == "estimate":
+        return await executor.estimate_bytes(QUERY)
+    return await executor.fetch(QUERY, max_rows=3)
 
 
-def test_error_with_an_unrelated_errors_attribute_is_classified_by_type() -> None:
-    assert classify(OddError("odd")) == Failed("unavailable", "OddError: odd")
+PHASES = pytest.mark.parametrize("phase", ["estimate", "fetch"])
 
 
-def test_reason_in_an_unexpected_shape_does_not_break_classification() -> None:
-    error = api.BadRequest("wrapper text", errors=["not a dict"])
+async def test_estimate_returns_the_bytes_without_running_the_query(connect: Connect) -> None:
+    client = StubClient(estimate=2_048)
 
-    assert classify(error).kind == "invalid_query"
-
-
-def test_unexpected_error_is_logged_with_its_type(caplog: pytest.LogCaptureFixture) -> None:
-    failed = classify(TypeError("our own bug"))
-
-    assert failed == Failed("unavailable", "TypeError: our own bug")
-    assert "unexpected error" in caplog.text
-
-
-# --- the executor
-
-
-class StubRows:
-    schema = (SchemaField("id", "INTEGER"), SchemaField("price", "NUMERIC"))
-
-    def __init__(self, rows: list[tuple[object, ...]]) -> None:
-        self._rows = [Row(row, {"id": 0, "price": 1}) for row in rows]
-
-    def __iter__(self) -> Any:
-        return iter(self._rows)
-
-
-class StubJob:
-    job_id = "job-1"
-    total_bytes_processed = 2_048
-    cache_hit = True
-
-    def __init__(
-        self,
-        rows: list[tuple[object, ...]] | None = None,
-        result_error: Exception | None = None,
-        cancel_error: Exception | None = None,
-    ) -> None:
-        self._rows = rows or []
-        self._result_error = result_error
-        self._cancel_error = cancel_error
-        self.max_results: int | None = None
-        self.cancelled = False
-        self.cancel_options: dict[str, Any] = {}
-
-    def result(self, max_results: int | None = None, **_: Any) -> StubRows:
-        self.max_results = max_results
-        if self._result_error:
-            raise self._result_error
-        return StubRows(self._rows)
-
-    def cancel(self, **options: Any) -> None:
-        self.cancelled = True
-        self.cancel_options = options
-        if self._cancel_error:
-            raise self._cancel_error
-
-
-class StubClient:
-    def __init__(self, job: StubJob | None = None, error: Exception | None = None) -> None:
-        self.job = job or StubJob()
-        self._error = error
-        self.sent: list[tuple[str, bool]] = []
-        self.options: dict[str, Any] = {}
-
-    def query(self, sql: str, job_config: Any = None, **options: Any) -> StubJob:
-        self.sent.append((sql, bool(job_config.dry_run)))
-        self.options = options
-        if self._error:
-            raise self._error
-        return self.job
-
-
-def executor(client: StubClient) -> BigQueryExecutor:
-    return BigQueryExecutor(client, max_bytes_billed=1_000_000, timeout_s=30)  # type: ignore[arg-type]
-
-
-def test_dry_run_returns_the_estimate_without_running_the_query() -> None:
-    client = StubClient()
-
-    assert executor(client).dry_run(QUERY) == Estimate(bytes_processed=2_048)
+    assert await connect(client).estimate_bytes(QUERY) == 2_048
     assert client.sent == [(QUERY.sql, True)]
 
 
-def test_dry_run_reports_a_compile_error() -> None:
-    client = StubClient(error=api_error(api.BadRequest, "invalidQuery"))
+async def test_estimate_without_a_number_is_an_error(connect: Connect) -> None:
+    with pytest.raises(RuntimeError, match="no estimate"):
+        await connect(StubClient(estimate=None)).estimate_bytes(QUERY)
 
-    assert executor(client).dry_run(QUERY) == Failed("invalid_query", "cause: invalidQuery")
 
+async def test_fetch_returns_columns_rows_bytes_and_the_job_id(connect: Connect) -> None:
+    client = StubClient(rows=[(1, Decimal("9.99")), (2, None)])
 
-def test_execute_returns_columns_and_rows() -> None:
-    client = StubClient(StubJob(rows=[(1, Decimal("9.99")), (2, None)]))
-
-    fetched = executor(client).execute(QUERY, max_rows=3)
+    fetched = await connect(client).fetch(QUERY, max_rows=3)
 
     assert fetched == Fetched(
         columns=("id", "price"),
         rows=((1, Decimal("9.99")), (2, None)),
         bytes_processed=2_048,
-        cache_hit=True,
         job_id="job-1",
     )
     assert client.sent == [(QUERY.sql, False)]
-    assert client.job.max_results == 3
 
 
-def test_execute_cancels_the_job_on_timeout() -> None:
-    client = StubClient(StubJob(result_error=TimeoutError()))
-
-    failed = executor(client).execute(QUERY, max_rows=3)
-
-    assert isinstance(failed, Failed)
-    assert failed.kind == "timeout"
-    assert failed.job_id == "job-1"
-    assert client.job.cancelled
-
-
-@pytest.mark.parametrize("phase", ["dry_run", "execute"])
-def test_sending_a_query_is_bounded_in_time(phase: str) -> None:
+async def test_fetch_asks_for_no_more_rows_than_allowed(connect: Connect) -> None:
     client = StubClient()
-    runner = executor(client)
 
-    _ = runner.dry_run(QUERY) if phase == "dry_run" else runner.execute(QUERY, max_rows=3)
+    await connect(client).fetch(QUERY, max_rows=3)
 
-    assert client.options["timeout"] == 30
-    assert client.options["retry"].timeout == 30
+    assert client.options["max_results"] == 3
+
+
+@PHASES
+async def test_query_bigquery_calls_invalid_is_rejected_with_its_text(
+    connect: Connect, phase: str
+) -> None:
+    client = StubClient(error=api_error(api.BadRequest, "invalidQuery"))
+
+    with pytest.raises(QueryRejected) as raised:
+        await call(connect(client), phase)
+
+    assert str(raised.value) == "cause: invalidQuery"
+
+
+async def test_rejection_without_a_message_keeps_the_whole_error_text(connect: Connect) -> None:
+    error = api.BadRequest("wrapper text", errors=[{"reason": "invalidQuery"}])
+
+    with pytest.raises(QueryRejected, match="wrapper text"):
+        await connect(StubClient(error=error)).estimate_bytes(QUERY)
+
+
+@PHASES
+@pytest.mark.parametrize(
+    "error",
+    [
+        api_error(api.Forbidden, "accessDenied"),
+        api_error(api.BadRequest, "badRequest"),
+        api_error(api.BadRequest, "bytesBilledLimitExceeded"),
+        api.BadRequest("no reason given"),
+        api.BadRequest("odd shape", errors=["not a dict"]),
+        api.ServiceUnavailable("down"),
+        auth.RefreshError("token expired"),
+        TimeoutError("too slow"),
+    ],
+)
+async def test_any_other_error_passes_through_unchanged(
+    connect: Connect, phase: str, error: Exception
+) -> None:
+    with pytest.raises(type(error), match=str(error)):
+        await call(connect(StubClient(error=error)), phase)
+
+
+@PHASES
+async def test_calls_are_bounded_in_time_and_never_repeat_the_query(
+    connect: Connect, phase: str
+) -> None:
+    client = StubClient()
+
+    await call(connect(client), phase)
+
+    time_limit = "timeout" if phase == "estimate" else "wait_timeout"
+    assert client.options[time_limit] == TIMEOUT_S
+    assert client.options["retry"].timeout == TIMEOUT_S
     assert client.options["job_retry"] is None
 
 
-def test_cancel_is_bounded_in_time() -> None:
-    client = StubClient(StubJob(result_error=TimeoutError()))
+async def test_server_keeps_the_query_longer_than_we_wait_for_it(connect: Connect) -> None:
+    client = StubClient()
 
-    executor(client).execute(QUERY, max_rows=3)
+    await connect(client).fetch(QUERY, max_rows=3)
 
-    assert client.job.cancel_options["retry"] is None
-    assert client.job.cancel_options["timeout"] <= 5
-
-
-def test_failed_cancel_does_not_hide_the_timeout() -> None:
-    job = StubJob(result_error=TimeoutError(), cancel_error=RuntimeError("cancel failed"))
-
-    failed = executor(StubClient(job)).execute(QUERY, max_rows=3)
-
-    assert isinstance(failed, Failed)
-    assert failed.kind == "timeout"
+    assert int(client.config.job_timeout_ms) > TIMEOUT_S * 1000
 
 
-def test_failed_job_keeps_its_id_and_is_not_cancelled() -> None:
-    job = StubJob(result_error=api_error(api.BadRequest, "invalidQuery"))
+async def test_bytes_billed_are_capped(connect: Connect) -> None:
+    client = StubClient()
 
-    failed = executor(StubClient(job)).execute(QUERY, max_rows=3)
+    await connect(client).fetch(QUERY, max_rows=3)
 
-    assert failed == Failed("invalid_query", "cause: invalidQuery", job_id="job-1")
-    assert not job.cancelled
-
-
-@pytest.mark.parametrize("phase", ["dry_run", "execute"])
-def test_executor_never_raises(phase: str) -> None:
-    runner = executor(StubClient(error=RuntimeError("network down")))
-
-    failed = runner.dry_run(QUERY) if phase == "dry_run" else runner.execute(QUERY, max_rows=3)
-
-    assert failed == Failed("unavailable", "RuntimeError: network down")
+    assert client.config.maximum_bytes_billed == 1_000_000
 
 
-def test_dry_run_without_an_estimate_is_a_failure() -> None:
-    job = StubJob()
-    job.total_bytes_processed = None  # type: ignore[assignment]
+async def test_missing_credentials_fail_the_first_query_not_the_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_credentials(project: str) -> StubClient:
+        raise auth.DefaultCredentialsError("credentials were not found")
 
-    failed = executor(StubClient(job)).dry_run(QUERY)
+    monkeypatch.setattr("retail_agent.bigquery_executor.bigquery.Client", no_credentials)
+    executor = new_executor()
 
-    assert failed == Failed("unavailable", "dry run returned no estimate")
+    with pytest.raises(auth.DefaultCredentialsError):
+        await executor.estimate_bytes(QUERY)
 
 
-@pytest.mark.parametrize("phase", ["dry_run", "execute"])
-def test_timeout_before_a_job_exists_is_a_connection_problem(phase: str) -> None:
-    runner = executor(StubClient(error=TimeoutError()))
+async def test_client_is_created_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    created: list[str] = []
 
-    failed = runner.dry_run(QUERY) if phase == "dry_run" else runner.execute(QUERY, max_rows=3)
+    def create(project: str) -> StubClient:
+        created.append(project)
+        return StubClient()
 
-    assert isinstance(failed, Failed)
-    assert failed.kind == "unavailable"
+    monkeypatch.setattr("retail_agent.bigquery_executor.bigquery.Client", create)
+    executor = new_executor()
+
+    await executor.estimate_bytes(QUERY)
+    await executor.fetch(QUERY, max_rows=3)
+
+    assert created == ["acme-project"]

@@ -2,7 +2,7 @@ import pytest
 from sqlglot import exp, parse_one
 
 from retail_agent.policy import AllBrands, Brands, Policy
-from retail_agent.sql_guard import Allowed, Rejected, check
+from retail_agent.sql_guard import AllowedQuery, Rejected, check
 
 PII = {
     "first_name",
@@ -22,7 +22,7 @@ NO_BRANDS = Policy(scope=Brands(frozenset()))
 
 def allowed(sql: str, policy: Policy = MANAGER) -> str:
     verdict = check(sql, policy)
-    assert isinstance(verdict, Allowed), verdict
+    assert isinstance(verdict, AllowedQuery), verdict
     return verdict.sql
 
 
@@ -213,7 +213,7 @@ def test_rejects(sql: str, code: str):
 def test_whatever_is_not_rejected_reads_only_guarded_tables(sql: str, policy: Policy):
     verdict = check(sql, policy)
 
-    if isinstance(verdict, Allowed):
+    if isinstance(verdict, AllowedQuery):
         assert_every_table_is_guarded(verdict.sql, scoped=policy is MANAGER)
 
 
