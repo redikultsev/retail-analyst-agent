@@ -1,8 +1,8 @@
 from datetime import date
 
-from retail_agent.policy import AllBrands, Brands, describe
-from retail_agent.profile import Profile
-from retail_agent.schema import VISIBLE_COLUMNS, visible_columns
+from retail_agent.domain.policy import AllBrands, Brands, describe
+from retail_agent.domain.profile import Profile
+from retail_agent.domain.schema import VISIBLE_COLUMNS, visible_columns
 
 ROLE = """\
 You are a retail analyst. You answer questions from executives who do not write SQL.

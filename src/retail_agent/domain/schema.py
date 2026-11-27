@@ -1,4 +1,4 @@
-from retail_agent.policy import AllBrands, Brands
+from retail_agent.domain.policy import AllBrands, Brands
 
 CATALOG = "bigquery-public-data"
 DATASET = "thelook_ecommerce"

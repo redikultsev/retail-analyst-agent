@@ -18,7 +18,7 @@ from langchain_core.tools import BaseTool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from retail_agent.report import DeletionRequest, ReportSummary
+from retail_agent.domain.report import DeletionRequest, ReportSummary
 
 
 class LangChainAgent:

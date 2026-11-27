@@ -5,11 +5,11 @@ from fakes import BrokenModel, FakeExecutor, ScriptedModel, sql_call
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 from langchain_core.messages import AIMessage
 
-from retail_agent.langchain_agent import LangChainAgent
-from retail_agent.policy import Brands, Policy
-from retail_agent.query_executor import Fetched
-from retail_agent.sql_tool import RUN_SQL, sql_tool
-from retail_agent.warehouse import Warehouse
+from retail_agent.agent.langchain_agent import LangChainAgent
+from retail_agent.agent.sql_tool import RUN_SQL, sql_tool
+from retail_agent.domain.policy import Brands, Policy
+from retail_agent.warehouse.query_executor import Fetched
+from retail_agent.warehouse.warehouse import Warehouse
 
 BEN_SCOPE = Brands(frozenset({"Diesel", "Joe's Jeans"}))
 

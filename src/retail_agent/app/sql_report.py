@@ -2,9 +2,9 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from retail_agent.policy import AllBrands, Brands
-from retail_agent.terminal import print_plain
-from retail_agent.warehouse import Answered, QueryLog, Refused, shareable_detail
+from retail_agent.app.terminal import print_plain
+from retail_agent.domain.policy import AllBrands, Brands
+from retail_agent.warehouse.warehouse import Answered, QueryLog, Refused, shareable_detail
 
 
 def print_outcome(console: Console, outcome: Answered | Refused, scope: AllBrands | Brands) -> None:

@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from retail_agent.report_repository import ReportRepository, ReportsUnavailable
+from retail_agent.adapters.report_repository import ReportRepository, ReportsUnavailable
 
 
 def test_saved_report_is_found_by_its_owner(reports) -> None:

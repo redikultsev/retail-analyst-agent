@@ -5,19 +5,19 @@ from uuid import uuid4
 from langchain_google_genai import ChatGoogleGenerativeAI
 from rich.console import Console
 
-from retail_agent.bigquery_executor import BigQueryExecutor
-from retail_agent.chat import Chat
+from retail_agent.adapters.bigquery_executor import BigQueryExecutor
+from retail_agent.adapters.profile_repository import ProfileRepository
+from retail_agent.adapters.report_repository import ReportRepository
+from retail_agent.agent.langchain_agent import LangChainAgent
+from retail_agent.agent.prompt import system_prompt
+from retail_agent.agent.report_tools import DELETE_REPORTS, report_tools
+from retail_agent.agent.sql_tool import RUN_SQL, sql_tool
+from retail_agent.app.chat import Chat
+from retail_agent.app.terminal import RichTerminal
 from retail_agent.config import Settings
-from retail_agent.langchain_agent import LangChainAgent
-from retail_agent.policy import Policy
-from retail_agent.profile import Profile
-from retail_agent.profile_repository import ProfileRepository
-from retail_agent.prompt import system_prompt
-from retail_agent.report_repository import ReportRepository
-from retail_agent.report_tools import DELETE_REPORTS, report_tools
-from retail_agent.sql_tool import RUN_SQL, sql_tool
-from retail_agent.terminal import RichTerminal
-from retail_agent.warehouse import Warehouse
+from retail_agent.domain.policy import Policy
+from retail_agent.domain.profile import Profile
+from retail_agent.warehouse.warehouse import Warehouse
 
 MODEL_RETRIES = 2
 MODEL_TIMEOUT_S = 60

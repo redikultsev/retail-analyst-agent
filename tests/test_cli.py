@@ -6,11 +6,11 @@ from fakes import BrokenModel, FakeExecutor, ScriptedModel, brands
 from langchain_core.messages import AIMessage
 from typer.testing import CliRunner
 
-from retail_agent.cli import app
-from retail_agent.policy import Policy
-from retail_agent.query_executor import Fetched, QueryRejected
-from retail_agent.report_repository import ReportsUnavailable
-from retail_agent.warehouse import Warehouse
+from retail_agent.adapters.report_repository import ReportsUnavailable
+from retail_agent.app.cli import app
+from retail_agent.domain.policy import Policy
+from retail_agent.warehouse.query_executor import Fetched, QueryRejected
+from retail_agent.warehouse.warehouse import Warehouse
 
 runner = CliRunner()
 
@@ -27,7 +27,7 @@ def warehouse(monkeypatch):
                 secrets=(),
             )
 
-        monkeypatch.setattr("retail_agent.cli.build_warehouse", build)
+        monkeypatch.setattr("retail_agent.app.cli.build_warehouse", build)
 
     answer_with(FakeExecutor(fetch=brands("Diesel", "Joe's Jeans", "Polo Ralph Lauren")))
     return answer_with

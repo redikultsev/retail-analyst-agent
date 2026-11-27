@@ -1,10 +1,10 @@
 import logging
 from typing import Protocol
 
-from retail_agent.policy import describe
-from retail_agent.profile import Profile
-from retail_agent.report import DeletionRequest, ReportSummary
-from retail_agent.sanitize import one_line, safe_text
+from retail_agent.domain.policy import describe
+from retail_agent.domain.profile import Profile
+from retail_agent.domain.report import DeletionRequest, ReportSummary
+from retail_agent.warehouse.sanitize import one_line, safe_text
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ from google.api_core import exceptions as api
 from google.cloud import bigquery
 from google.cloud.bigquery.retry import DEFAULT_RETRY
 
-from retail_agent.query_executor import Fetched, QueryRejected
-from retail_agent.sql_guard import AllowedQuery
+from retail_agent.warehouse.query_executor import Fetched, QueryRejected
+from retail_agent.warehouse.sql_guard import AllowedQuery
 
 SERVER_STOP_MARGIN_S = 5.0
 

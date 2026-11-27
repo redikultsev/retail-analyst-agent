@@ -6,8 +6,8 @@ from langchain.tools import tool
 from langchain_core.tools import BaseTool
 from langgraph.types import interrupt
 
-from retail_agent.report import Report, ReportSummary
-from retail_agent.report_repository import ReportRepository
+from retail_agent.adapters.report_repository import ReportRepository
+from retail_agent.domain.report import Report, ReportSummary
 
 logger = logging.getLogger(__name__)
 

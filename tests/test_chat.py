@@ -1,7 +1,7 @@
 from fakes import BEN, FakeTerminal
 
-from retail_agent.chat import FAILED_REPLY, NOTHING_DELETED, UNFINISHED_REPLY, Chat
-from retail_agent.report import DeletionRequest, ReportSummary
+from retail_agent.app.chat import FAILED_REPLY, NOTHING_DELETED, UNFINISHED_REPLY, Chat
+from retail_agent.domain.report import DeletionRequest, ReportSummary
 
 
 class EchoAgent:

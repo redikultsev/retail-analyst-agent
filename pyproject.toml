@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-retail-agent = "retail_agent.cli:app"
+retail-agent = "retail_agent.app.cli:app"
 
 [build-system]
 requires = ["hatchling"]

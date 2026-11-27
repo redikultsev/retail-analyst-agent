@@ -3,7 +3,7 @@ from io import StringIO
 import pytest
 from rich.console import Console
 
-from retail_agent.terminal import RichTerminal
+from retail_agent.app.terminal import RichTerminal
 
 
 @pytest.fixture

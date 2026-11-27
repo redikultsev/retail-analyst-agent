@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from retail_agent.report import Report
+from retail_agent.domain.report import Report
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reports (

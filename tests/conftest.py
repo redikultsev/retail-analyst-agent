@@ -1,6 +1,6 @@
 import pytest
 
-from retail_agent.report_repository import ReportRepository
+from retail_agent.adapters.report_repository import ReportRepository
 
 VARIABLES = (
     "GOOGLE_CLOUD_PROJECT",

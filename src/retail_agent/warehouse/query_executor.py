@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from retail_agent.sql_guard import AllowedQuery
+from retail_agent.warehouse.sql_guard import AllowedQuery
 
 type Cell = object
 type Row = tuple[Cell, ...]

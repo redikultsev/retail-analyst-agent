@@ -3,8 +3,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from retail_agent.policy import AllBrands, Brands
-from retail_agent.profile import Profile
+from retail_agent.domain.policy import AllBrands, Brands
+from retail_agent.domain.profile import Profile
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS profiles (

@@ -1,9 +1,9 @@
 from datetime import date
 
-from retail_agent.policy import AllBrands, Brands
-from retail_agent.profile import Profile
-from retail_agent.prompt import system_prompt
-from retail_agent.schema import PII_COLUMNS, VISIBLE_COLUMNS
+from retail_agent.agent.prompt import system_prompt
+from retail_agent.domain.policy import AllBrands, Brands
+from retail_agent.domain.profile import Profile
+from retail_agent.domain.schema import PII_COLUMNS, VISIBLE_COLUMNS
 
 TODAY = date(2026, 11, 27)
 ALICE = Profile("alice", "Alice Carter", "CEO", AllBrands())

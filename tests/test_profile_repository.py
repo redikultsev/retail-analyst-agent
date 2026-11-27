@@ -3,9 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from retail_agent.policy import AllBrands, Brands
-from retail_agent.profile import Profile
-from retail_agent.profile_repository import ProfileRepository, ProfilesUnavailable, UnknownUser
+from retail_agent.adapters.profile_repository import (
+    ProfileRepository,
+    ProfilesUnavailable,
+    UnknownUser,
+)
+from retail_agent.domain.policy import AllBrands, Brands
+from retail_agent.domain.profile import Profile
 
 
 @pytest.fixture

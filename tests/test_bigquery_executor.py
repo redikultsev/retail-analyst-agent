@@ -6,9 +6,9 @@ from fakes import StubClient
 from google.api_core import exceptions as api
 from google.auth import exceptions as auth
 
-from retail_agent.bigquery_executor import BigQueryExecutor
-from retail_agent.query_executor import Fetched, QueryRejected
-from retail_agent.sql_guard import AllowedQuery
+from retail_agent.adapters.bigquery_executor import BigQueryExecutor
+from retail_agent.warehouse.query_executor import Fetched, QueryRejected
+from retail_agent.warehouse.sql_guard import AllowedQuery
 
 QUERY = AllowedQuery("SELECT id, price FROM items")
 TIMEOUT_S = 30
@@ -28,7 +28,7 @@ def new_executor() -> BigQueryExecutor:
 def connect(monkeypatch: pytest.MonkeyPatch) -> Connect:
     def executor_for(client: StubClient) -> BigQueryExecutor:
         monkeypatch.setattr(
-            "retail_agent.bigquery_executor.bigquery.Client", lambda project: client
+            "retail_agent.adapters.bigquery_executor.bigquery.Client", lambda project: client
         )
         return new_executor()
 
@@ -164,7 +164,7 @@ async def test_missing_credentials_fail_the_first_query_not_the_construction(
     def no_credentials(project: str) -> StubClient:
         raise auth.DefaultCredentialsError("credentials were not found")
 
-    monkeypatch.setattr("retail_agent.bigquery_executor.bigquery.Client", no_credentials)
+    monkeypatch.setattr("retail_agent.adapters.bigquery_executor.bigquery.Client", no_credentials)
     executor = new_executor()
 
     with pytest.raises(auth.DefaultCredentialsError):
@@ -178,7 +178,7 @@ async def test_client_is_created_once(monkeypatch: pytest.MonkeyPatch) -> None:
         created.append(project)
         return StubClient()
 
-    monkeypatch.setattr("retail_agent.bigquery_executor.bigquery.Client", create)
+    monkeypatch.setattr("retail_agent.adapters.bigquery_executor.bigquery.Client", create)
     executor = new_executor()
 
     await executor.estimate_bytes(QUERY)

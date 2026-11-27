@@ -4,10 +4,10 @@ import pytest
 from fakes import BEN, FakeTerminal, ScriptedModel, tool_call, tool_calls
 from langchain_core.messages import AIMessage
 
-from retail_agent.chat import Chat
-from retail_agent.langchain_agent import LangChainAgent
-from retail_agent.report import DeletionRequest, Report, ReportSummary
-from retail_agent.report_tools import DELETE_REPORTS, report_tools
+from retail_agent.agent.langchain_agent import LangChainAgent
+from retail_agent.agent.report_tools import DELETE_REPORTS, report_tools
+from retail_agent.app.chat import Chat
+from retail_agent.domain.report import DeletionRequest, Report, ReportSummary
 
 
 def agent(model, reports) -> LangChainAgent:

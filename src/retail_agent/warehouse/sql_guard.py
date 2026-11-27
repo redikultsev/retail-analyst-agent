@@ -7,8 +7,8 @@ from sqlglot import exp
 from sqlglot.errors import ParseError, SqlglotError
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
-from retail_agent.policy import AllBrands, Brands, Policy
-from retail_agent.schema import (
+from retail_agent.domain.policy import AllBrands, Brands, Policy
+from retail_agent.domain.schema import (
     CATALOG,
     DATASET,
     HIDDEN_FROM_BRAND_SCOPE,

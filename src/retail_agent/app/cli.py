@@ -4,15 +4,15 @@ from typing import Annotated, NoReturn
 
 import typer
 
+from retail_agent.adapters.profile_repository import ProfileError
+from retail_agent.adapters.report_repository import ReportsUnavailable
+from retail_agent.app.sql_report import print_outcome
 from retail_agent.config import ConfigError, Settings, load_settings
 from retail_agent.di import build_chat, build_console, build_profile_repository, build_warehouse
-from retail_agent.policy import Brands, describe
-from retail_agent.profile import Profile
-from retail_agent.profile_repository import ProfileError
-from retail_agent.report_repository import ReportsUnavailable
-from retail_agent.sql_report import print_outcome
-from retail_agent.startup_check import WarehouseNotReady, verify
-from retail_agent.warehouse import Refused, Warehouse
+from retail_agent.domain.policy import Brands, describe
+from retail_agent.domain.profile import Profile
+from retail_agent.warehouse.startup_check import WarehouseNotReady, verify
+from retail_agent.warehouse.warehouse import Refused, Warehouse
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 User = Annotated[str, typer.Option("--user", help="Who is asking. See 'retail-agent users'.")]
