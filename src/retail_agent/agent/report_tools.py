@@ -6,15 +6,14 @@ from langchain.tools import tool
 from langchain_core.tools import BaseTool
 from langgraph.types import interrupt
 
-from retail_agent.adapters.report_repository import ReportRepository
-from retail_agent.domain.report import Report, ReportSummary
+from retail_agent.domain.report import Report, ReportLibrary, ReportSummary
 
 logger = logging.getLogger(__name__)
 
 DELETE_REPORTS = "delete_reports"
 
 
-def report_tools(reports: ReportRepository, owner: str, conversation_id: str) -> list[BaseTool]:
+def report_tools(reports: ReportLibrary, owner: str, conversation_id: str) -> list[BaseTool]:
     @tool
     def save_report(title: str, body: str) -> str:
         """Save a report to the library of the person you are talking to.

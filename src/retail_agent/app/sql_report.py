@@ -4,7 +4,7 @@ from rich.text import Text
 
 from retail_agent.app.terminal import print_plain
 from retail_agent.domain.policy import AllBrands, Brands
-from retail_agent.warehouse.warehouse import Answered, QueryLog, Refused, shareable_detail
+from retail_agent.query.warehouse import Answered, QueryLog, Refused, shareable_detail
 
 
 def print_outcome(console: Console, outcome: Answered | Refused, scope: AllBrands | Brands) -> None:

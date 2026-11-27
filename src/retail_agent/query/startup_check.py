@@ -1,5 +1,5 @@
 from retail_agent.domain.policy import AllBrands, Brands, describe
-from retail_agent.warehouse.warehouse import Refused, Warehouse
+from retail_agent.query.warehouse import Refused, Warehouse
 
 BRANDS_QUERY = "SELECT DISTINCT brand FROM products"
 

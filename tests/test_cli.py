@@ -9,8 +9,8 @@ from typer.testing import CliRunner
 from retail_agent.adapters.report_repository import ReportsUnavailable
 from retail_agent.app.cli import app
 from retail_agent.domain.policy import Policy
-from retail_agent.warehouse.query_executor import Fetched, QueryRejected
-from retail_agent.warehouse.warehouse import Warehouse
+from retail_agent.query.query_executor import Fetched, QueryRejected
+from retail_agent.query.warehouse import Warehouse
 
 runner = CliRunner()
 

@@ -4,7 +4,7 @@ from langchain.tools import tool
 from langchain_core.tools import BaseTool
 
 from retail_agent.domain.policy import AllBrands, Brands, describe
-from retail_agent.warehouse.warehouse import Answered, Refused, Warehouse
+from retail_agent.query.warehouse import Answered, Refused, Warehouse
 
 RUN_SQL = "run_sql"
 NOT_FULL = "This is not the full result: do not present totals or counts from it."

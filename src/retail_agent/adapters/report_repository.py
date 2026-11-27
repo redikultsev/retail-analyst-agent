@@ -26,7 +26,7 @@ class ReportsUnavailable(Exception):
 
 
 class ReportRepository:
-    """Saved reports. Every read and write is limited to one owner."""
+    """The report library kept in the local SQLite database."""
 
     def __init__(self, database: Path) -> None:
         self._database = database
@@ -75,7 +75,6 @@ class ReportRepository:
         return reports
 
     def delete(self, owner: str, ids: Iterable[int]) -> int:
-        """Mark the owner's reports as deleted and return how many were marked."""
         deleted_at = datetime.now(UTC).isoformat()
         with self._connect() as connection:
             cursor = connection.executemany(

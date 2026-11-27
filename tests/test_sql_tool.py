@@ -5,7 +5,7 @@ import pytest
 
 from retail_agent.agent.sql_tool import tool_result
 from retail_agent.domain.policy import AllBrands, Brands
-from retail_agent.warehouse.warehouse import Answered, QueryLog, Refused
+from retail_agent.query.warehouse import Answered, QueryLog, Refused
 
 BEN_SCOPE = Brands(frozenset({"Diesel", "Joe's Jeans"}))
 

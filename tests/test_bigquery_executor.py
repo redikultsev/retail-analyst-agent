@@ -7,8 +7,8 @@ from google.api_core import exceptions as api
 from google.auth import exceptions as auth
 
 from retail_agent.adapters.bigquery_executor import BigQueryExecutor
-from retail_agent.warehouse.query_executor import Fetched, QueryRejected
-from retail_agent.warehouse.sql_guard import AllowedQuery
+from retail_agent.query.query_executor import Fetched, QueryRejected
+from retail_agent.query.sql_guard import AllowedQuery
 
 QUERY = AllowedQuery("SELECT id, price FROM items")
 TIMEOUT_S = 30

@@ -5,9 +5,9 @@ import pytest
 from fakes import FakeExecutor
 
 from retail_agent.domain.policy import AllBrands, Brands, Policy
-from retail_agent.warehouse.query_executor import Fetched, QueryRejected, Row
-from retail_agent.warehouse.sql_guard import AllowedQuery, Rejected, check
-from retail_agent.warehouse.warehouse import Answered, Refused, Warehouse
+from retail_agent.query.query_executor import Fetched, QueryRejected, Row
+from retail_agent.query.sql_guard import AllowedQuery, Rejected, check
+from retail_agent.query.warehouse import Answered, Refused, Warehouse
 
 PROJECT = "acme-project-123"
 CEO = Policy(scope=AllBrands())
@@ -298,7 +298,7 @@ async def test_bug_in_our_own_code_is_refused_and_logged_with_its_traceback(
     def crash(_: str) -> str:
         raise TypeError("our own bug")
 
-    monkeypatch.setattr("retail_agent.warehouse.warehouse.safe_text", crash)
+    monkeypatch.setattr("retail_agent.query.warehouse.safe_text", crash)
 
     with caplog.at_level(logging.ERROR):
         outcome = refused(await run(FakeExecutor()))
@@ -343,7 +343,7 @@ async def test_guard_crash_is_fixable_and_has_its_own_code(
     def crash(*_: object) -> None:
         raise RuntimeError("guard bug")
 
-    monkeypatch.setattr("retail_agent.warehouse.sql_guard._parse", crash)
+    monkeypatch.setattr("retail_agent.query.sql_guard._parse", crash)
 
     outcome = refused(await run(FakeExecutor()))
 

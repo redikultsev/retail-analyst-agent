@@ -17,7 +17,8 @@ from retail_agent.app.terminal import RichTerminal
 from retail_agent.config import Settings
 from retail_agent.domain.policy import Policy
 from retail_agent.domain.profile import Profile
-from retail_agent.warehouse.warehouse import Warehouse
+from retail_agent.domain.report import ReportLibrary
+from retail_agent.query.warehouse import Warehouse
 
 MODEL_RETRIES = 2
 MODEL_TIMEOUT_S = 60
@@ -38,7 +39,7 @@ def build_chat(settings: Settings, profile: Profile, warehouse: Warehouse) -> Ch
 
 
 def build_agent(
-    settings: Settings, profile: Profile, warehouse: Warehouse, reports: ReportRepository
+    settings: Settings, profile: Profile, warehouse: Warehouse, reports: ReportLibrary
 ) -> LangChainAgent:
     conversation_id = str(uuid4())
     return LangChainAgent(

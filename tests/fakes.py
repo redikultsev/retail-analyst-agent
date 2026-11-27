@@ -10,8 +10,8 @@ from pydantic import Field
 
 from retail_agent.domain.policy import Brands
 from retail_agent.domain.profile import Profile
-from retail_agent.warehouse.query_executor import Fetched
-from retail_agent.warehouse.sql_guard import AllowedQuery
+from retail_agent.query.query_executor import Fetched
+from retail_agent.query.sql_guard import AllowedQuery
 
 BEN = Profile("ben", "Ben Ortiz", "Brand manager", Brands(frozenset({"Diesel"})))
 

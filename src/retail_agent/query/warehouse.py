@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from retail_agent.domain.policy import AllBrands, Brands, Policy
-from retail_agent.warehouse.query_executor import Cell, Fetched, QueryExecutor, QueryRejected, Row
-from retail_agent.warehouse.sanitize import error_text, one_line, redact, safe_text
-from retail_agent.warehouse.sql_guard import AllowedQuery, RejectCode, Rejected, check
+from retail_agent.query.query_executor import Cell, Fetched, QueryExecutor, QueryRejected, Row
+from retail_agent.query.sanitize import error_text, one_line, redact, safe_text
+from retail_agent.query.sql_guard import AllowedQuery, RejectCode, Rejected, check
 
 logger = logging.getLogger(__name__)
 

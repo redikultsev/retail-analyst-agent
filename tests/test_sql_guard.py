@@ -2,7 +2,7 @@ import pytest
 from sqlglot import exp, parse_one
 
 from retail_agent.domain.policy import AllBrands, Brands, Policy
-from retail_agent.warehouse.sql_guard import AllowedQuery, Rejected, check
+from retail_agent.query.sql_guard import AllowedQuery, Rejected, check
 
 PII = {
     "first_name",
@@ -278,7 +278,7 @@ def test_internal_failure_is_rejected_and_logged(monkeypatch, caplog):
     def broken(_query):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("retail_agent.warehouse.sql_guard.traverse_scope", broken)
+    monkeypatch.setattr("retail_agent.query.sql_guard.traverse_scope", broken)
 
     verdict = rejected("SELECT id FROM users")
 

@@ -2,8 +2,8 @@ import pytest
 from fakes import FakeExecutor, brands
 
 from retail_agent.domain.policy import AllBrands, Brands, Policy
-from retail_agent.warehouse.startup_check import WarehouseNotReady, verify
-from retail_agent.warehouse.warehouse import Warehouse
+from retail_agent.query.startup_check import WarehouseNotReady, verify
+from retail_agent.query.warehouse import Warehouse
 
 BEN_SCOPE = Brands(frozenset({"Diesel", "Joe's Jeans"}))
 
