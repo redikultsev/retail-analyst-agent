@@ -6,6 +6,7 @@ from langchain.tools import tool
 from langchain_core.tools import BaseTool
 from langgraph.types import interrupt
 
+from retail_agent.domain.pii import PiiMask
 from retail_agent.domain.report import Report, ReportLibrary, ReportSummary
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,9 @@ def report_tools(reports: ReportLibrary, owner: str, conversation_id: str) -> li
 
         The body is Markdown. Call this only when the person asks to save or create a report.
         """
-        saved = reports.add(owner, conversation_id, title, body)
+        mask = PiiMask()
+        saved = reports.add(owner, conversation_id, mask.hide(title), mask.hide(body))
+        mask.log("report")
         return _json({"saved": {"id": saved.id, "title": saved.title}})
 
     @tool

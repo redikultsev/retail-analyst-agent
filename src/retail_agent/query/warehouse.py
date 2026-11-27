@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass
 from typing import Literal, cast
 
+from retail_agent.domain.pii import PiiMask, mask_pii
 from retail_agent.domain.policy import AllBrands, Brands, Policy
 from retail_agent.query.query_executor import Cell, Fetched, QueryExecutor, QueryRejected, Row
 from retail_agent.query.sanitize import error_text, one_line, redact, safe_text
@@ -131,7 +132,9 @@ class Warehouse:
         await self._check_cost(query, log)
         fetched = await self._fetch(query, log)
         columns = tuple(safe_text(name) for name in fetched.columns)
-        rows = tuple(tuple(_safe_cell(cell) for cell in row) for row in fetched.rows)
+        mask = PiiMask()
+        rows = tuple(tuple(_safe_cell(cell, mask) for cell in row) for row in fetched.rows)
+        mask.log("query result")
         rows = self._truncate(rows, log)
         log.status = "ok" if rows else "no_data"
         log.row_count = len(rows)
@@ -174,7 +177,9 @@ class Warehouse:
         return fetched
 
     def _log_text(self, detail: str | None) -> str | None:
-        return one_line(redact(detail, self._secrets)) if detail else None
+        if not detail:
+            return None
+        return mask_pii(one_line(redact(detail, self._secrets)), "query error")
 
     def _truncate(self, rows: tuple[Row, ...], log: QueryLog) -> tuple[Row, ...]:
         within_limit = rows[: self._policy.row_limit]
@@ -205,12 +210,12 @@ def _describe(error: Exception) -> str:
     return f"{type(error).__name__}: {error}"
 
 
-def _safe_cell(cell: Cell) -> Cell:
+def _safe_cell(cell: Cell, mask: PiiMask) -> Cell:
     if isinstance(cell, str):
-        return safe_text(cell)
+        return mask.hide(safe_text(cell))
     if isinstance(cell, list):
-        return [_safe_cell(item) for item in cast(list[object], cell)]
+        return [_safe_cell(item, mask) for item in cast(list[object], cell)]
     if isinstance(cell, dict):
         items = cast(dict[object, object], cell).items()
-        return {safe_text(str(key)): _safe_cell(value) for key, value in items}
+        return {safe_text(str(key)): _safe_cell(value, mask) for key, value in items}
     return cell

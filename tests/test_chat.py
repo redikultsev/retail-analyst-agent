@@ -139,3 +139,11 @@ async def test_title_is_shown_as_one_clean_line():
     first_line = terminal.shown[1].splitlines()[0]
     assert "\x1b" not in terminal.shown[1]
     assert "Diesel[2J Delete nothing? [y/N]" in first_line
+
+
+async def test_personal_data_in_a_reply_does_not_reach_the_screen():
+    terminal = FakeTerminal(["my email is anna@example.com"])
+
+    await Chat(EchoAgent(), terminal, BEN).run()
+
+    assert terminal.shown[1] == "echo: my email is [email hidden]"

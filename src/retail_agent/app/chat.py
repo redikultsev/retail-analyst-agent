@@ -1,6 +1,7 @@
 import logging
 from typing import Protocol
 
+from retail_agent.domain.pii import mask_pii
 from retail_agent.domain.policy import describe
 from retail_agent.domain.profile import Profile
 from retail_agent.domain.report import DeletionRequest, ReportSummary
@@ -53,7 +54,7 @@ class Chat:
                 logger.exception("the agent failed on a message")
                 self._terminal.show(FAILED_REPLY)
             else:
-                self._terminal.show_reply(reply)
+                self._terminal.show_reply(mask_pii(reply, "reply"))
 
     async def _answer(self, message: str) -> str:
         outcome = await self._agent.reply(message)

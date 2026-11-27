@@ -377,3 +377,30 @@ async def test_log_file_never_gets_the_runtime_error_text_of_a_brand_manager(
 
     assert "status=runtime_error" in caplog.text
     assert "LEAK" not in caplog.text
+
+
+async def test_email_in_a_result_cell_is_hidden() -> None:
+    executor = FakeExecutor(fetch=fetched((1, "anna@example.com"), (2, ["ben@acme.example"])))
+
+    rows = answered(await run(executor)).rows
+
+    assert rows == ((1, "[email hidden]"), (2, ["[email hidden]"]))
+
+
+async def test_many_hidden_cells_make_one_log_line(caplog: pytest.LogCaptureFixture) -> None:
+    rows = ((1, "anna@example.com"), (2, "ben@acme.example"), (3, "+1 555 010 9999"))
+
+    await run(FakeExecutor(fetch=fetched(*rows)))
+
+    assert caplog.text.count("pii masked") == 1
+    assert "where=query result emails=2 phones=1" in caplog.text
+    assert "anna" not in caplog.text
+
+
+async def test_email_in_a_runtime_error_is_hidden_in_the_log_record() -> None:
+    failure = QueryRejected("Bad int64 value: anna@example.com")
+
+    outcome = await run(FakeExecutor(fetch=failure), policy=CEO)
+
+    assert isinstance(outcome, Refused)
+    assert outcome.log.detail == "Bad int64 value: [email hidden]"

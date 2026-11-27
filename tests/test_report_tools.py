@@ -44,6 +44,22 @@ async def test_report_is_saved_for_the_person_and_the_conversation_of_the_sessio
     assert (saved.title, saved.body) == ("Diesel returns", "## Summary")
 
 
+async def test_personal_data_is_hidden_before_a_report_is_stored(reports, caplog) -> None:
+    save = tool_call(
+        "save_report",
+        {"title": "Notes for anna@example.com", "body": "Call +1 555 010 9999 about returns."},
+    )
+    model = ScriptedModel([save, AIMessage("Saved.")])
+
+    await agent(model, reports).reply("save this as a report")
+
+    [saved] = reports.find("ben")
+    assert saved.title == "Notes for [email hidden]"
+    assert saved.body == "Call [phone hidden] about returns."
+    assert caplog.text.count("pii masked") == 1
+    assert "where=report emails=1 phones=1" in caplog.text
+
+
 async def test_found_reports_go_to_the_model_without_their_text(reports) -> None:
     saved = reports.add("ben", "talk-1", "Diesel returns", "SECRET BODY")
     reports.add("ben", "talk-1", "Joe's Jeans revenue", "body")
