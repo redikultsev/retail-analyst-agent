@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     langfuse_host: str | None = None
     data_dir: Path = Path("data")
     query_max_bytes: PositiveInt = 1_000_000_000
-    query_timeout_s: float = Field(default=30.0, gt=0, le=600)
+    query_timeout_s: float = Field(default=30.0, ge=10, le=600)
     result_max_chars: PositiveInt = 20_000
     result_max_rows: PositiveInt = 500
 

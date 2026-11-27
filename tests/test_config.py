@@ -77,12 +77,12 @@ def test_query_and_result_limits_have_defaults(required_env):
 
 def test_limits_can_be_changed(required_env, monkeypatch):
     monkeypatch.setenv("QUERY_MAX_BYTES", "5000")
-    monkeypatch.setenv("QUERY_TIMEOUT_S", "2.5")
+    monkeypatch.setenv("QUERY_TIMEOUT_S", "45.5")
 
     settings = load()
 
     assert settings.query_max_bytes == 5_000
-    assert settings.query_timeout_s == 2.5
+    assert settings.query_timeout_s == 45.5
 
 
 @pytest.mark.parametrize(
@@ -98,8 +98,8 @@ def test_limit_that_is_not_a_positive_number_is_named(required_env, monkeypatch,
     assert raised.value.missing == [name]
 
 
-@pytest.mark.parametrize("value", ["inf", "601"])
-def test_timeout_has_an_upper_bound(required_env, monkeypatch, value):
+@pytest.mark.parametrize("value", ["9.9", "601", "inf"])
+def test_timeout_must_be_between_10_and_600_seconds(required_env, monkeypatch, value):
     monkeypatch.setenv("QUERY_TIMEOUT_S", value)
 
     with pytest.raises(ConfigError) as raised:

@@ -38,9 +38,9 @@ def chat(user: User) -> None:
 def sql(query: Query, user: User) -> None:
     """Run one query through the same checks the agent uses and show what happened."""
     settings = _settings()
-    warehouse = build_warehouse(settings, _profile(settings, user))
-    outcome = asyncio.run(warehouse.run(query))
-    print_outcome(build_console(), outcome)
+    profile = _profile(settings, user)
+    outcome = asyncio.run(build_warehouse(settings, profile).run(query))
+    print_outcome(build_console(), outcome, profile.scope)
     if isinstance(outcome, Refused):
         raise typer.Exit(code=1)
 

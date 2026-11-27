@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from retail_agent.cli import app
 from retail_agent.policy import Policy
-from retail_agent.query_executor import Fetched
+from retail_agent.query_executor import Fetched, QueryRejected
 from retail_agent.warehouse import Warehouse
 
 runner = CliRunner()
@@ -158,6 +158,24 @@ def test_sql_prints_why_a_query_was_refused(required_env, warehouse):
     assert result.exit_code == 1
     assert "status=denied" in result.output
     assert "pii_column" in result.output
+
+
+def test_sql_hides_the_runtime_error_text_from_a_brand_manager(required_env, warehouse):
+    warehouse(FakeExecutor(fetch=QueryRejected("LEAK:36/China")))
+
+    result = runner.invoke(app, ["sql", "SELECT name FROM products", "--user", "ben"])
+
+    assert "status=runtime_error" in result.output
+    assert "LEAK" not in result.output
+    assert "detail=[hidden" in result.output
+
+
+def test_sql_shows_the_runtime_error_text_to_someone_who_sees_all_brands(required_env, warehouse):
+    warehouse(FakeExecutor(fetch=QueryRejected("LEAK:36/China")))
+
+    result = runner.invoke(app, ["sql", "SELECT name FROM products", "--user", "alice"])
+
+    assert "detail=LEAK:36/China" in result.output
 
 
 def test_sql_prints_square_brackets_as_they_are(required_env, warehouse):
