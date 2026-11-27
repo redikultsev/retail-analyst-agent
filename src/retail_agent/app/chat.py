@@ -1,4 +1,5 @@
 import logging
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from retail_agent.domain.pii import mask_pii
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 FAILED_REPLY = "I could not answer that. Please try again or rephrase the question."
 NOTHING_DELETED = "Nothing was deleted."
+TRACING_OFF = "Tracing is off: Langfuse could not be set up. The chat works without it."
 UNFINISHED_REPLY = (
     "I could not finish the answer. Ask what reports you have to see the current list."
 )
@@ -39,21 +41,52 @@ class Terminal(Protocol):
         ...
 
 
+class TracedQuestion(Protocol):
+    def answered(self, reply: str) -> None: ...
+
+    def failed(self, error: Exception) -> None: ...
+
+
+class Tracer(Protocol):
+    @property
+    def recording(self) -> bool:
+        """False when traces cannot be recorded. The chat works either way."""
+        ...
+
+    def question(self, text: str) -> AbstractContextManager[TracedQuestion]:
+        """Open the trace of one question. Everything the agent does inside belongs to it."""
+        ...
+
+    def close(self) -> None: ...
+
+
 class Chat:
-    def __init__(self, agent: Agent, terminal: Terminal, profile: Profile) -> None:
+    def __init__(self, agent: Agent, terminal: Terminal, profile: Profile, tracer: Tracer) -> None:
         self._agent = agent
         self._terminal = terminal
         self._profile = profile
+        self._tracer = tracer
 
     async def run(self) -> None:
         self._terminal.show(greeting(self._profile))
-        while (message := self._terminal.read()) is not None:
+        if not self._tracer.recording:
+            self._terminal.show(TRACING_OFF)
+        try:
+            while (message := self._terminal.read()) is not None:
+                await self._reply_to(message)
+        finally:
+            self._tracer.close()
+
+    async def _reply_to(self, message: str) -> None:
+        with self._tracer.question(message) as traced:
             try:
                 reply = await self._answer(message)
-            except Exception:
+            except Exception as error:
                 logger.exception("the agent failed on a message")
+                traced.failed(error)
                 self._terminal.show(FAILED_REPLY)
             else:
+                traced.answered(reply)
                 self._terminal.show_reply(mask_pii(reply, "reply"))
 
     async def _answer(self, message: str) -> str:

@@ -1,6 +1,12 @@
-from fakes import BEN, FakeTerminal
+from fakes import BEN, FakeTerminal, FakeTracer
 
-from retail_agent.app.chat import FAILED_REPLY, NOTHING_DELETED, UNFINISHED_REPLY, Chat
+from retail_agent.app.chat import (
+    FAILED_REPLY,
+    NOTHING_DELETED,
+    TRACING_OFF,
+    UNFINISHED_REPLY,
+    Chat,
+)
 from retail_agent.domain.report import DeletionRequest, ReportSummary
 
 
@@ -47,7 +53,7 @@ class AsksToDelete:
 async def test_greeting_says_who_is_signed_in_and_what_they_see():
     terminal = FakeTerminal([])
 
-    await Chat(EchoAgent(), terminal, BEN).run()
+    await Chat(EchoAgent(), terminal, BEN, FakeTracer()).run()
 
     assert "Ben Ortiz" in terminal.shown[0]
     assert "Diesel" in terminal.shown[0]
@@ -56,7 +62,7 @@ async def test_greeting_says_who_is_signed_in_and_what_they_see():
 async def test_shows_a_reply_for_each_message():
     terminal = FakeTerminal(["monthly revenue", "top products"])
 
-    await Chat(EchoAgent(), terminal, BEN).run()
+    await Chat(EchoAgent(), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[1:] == ["echo: monthly revenue", "echo: top products"]
 
@@ -64,7 +70,7 @@ async def test_shows_a_reply_for_each_message():
 async def test_ends_when_the_executive_leaves():
     terminal = FakeTerminal([])
 
-    await Chat(EchoAgent(), terminal, BEN).run()
+    await Chat(EchoAgent(), terminal, BEN, FakeTracer()).run()
 
     assert len(terminal.shown) == 1
 
@@ -72,7 +78,7 @@ async def test_ends_when_the_executive_leaves():
 async def test_a_failed_reply_is_shown_as_one_plain_sentence():
     terminal = FakeTerminal(["monthly revenue"])
 
-    await Chat(FailsOnceAgent(), terminal, BEN).run()
+    await Chat(FailsOnceAgent(), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[1:] == [FAILED_REPLY]
 
@@ -80,7 +86,7 @@ async def test_a_failed_reply_is_shown_as_one_plain_sentence():
 async def test_chat_goes_on_after_a_failed_reply():
     terminal = FakeTerminal(["monthly revenue", "top products"])
 
-    await Chat(FailsOnceAgent(), terminal, BEN).run()
+    await Chat(FailsOnceAgent(), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[2] == "echo: top products"
 
@@ -88,7 +94,9 @@ async def test_chat_goes_on_after_a_failed_reply():
 async def test_deletion_request_shows_the_reports_and_asks():
     terminal = FakeTerminal(["delete my reports"])
 
-    await Chat(AsksToDelete("Diesel returns", "Joe's Jeans revenue"), terminal, BEN).run()
+    await Chat(
+        AsksToDelete("Diesel returns", "Joe's Jeans revenue"), terminal, BEN, FakeTracer()
+    ).run()
 
     question = terminal.shown[1]
     assert "1. Diesel returns (2026-11-27)" in question
@@ -99,7 +107,7 @@ async def test_deletion_request_shows_the_reports_and_asks():
 async def test_a_yes_is_passed_to_the_agent():
     terminal = FakeTerminal(["delete the Diesel report"], confirm=True)
 
-    await Chat(AsksToDelete("Diesel returns"), terminal, BEN).run()
+    await Chat(AsksToDelete("Diesel returns"), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[2:] == ["agreed: True"]
 
@@ -107,7 +115,7 @@ async def test_a_yes_is_passed_to_the_agent():
 async def test_without_a_yes_the_chat_says_nothing_was_deleted_and_tells_the_agent():
     terminal = FakeTerminal(["delete the Diesel report"], confirm=False)
 
-    await Chat(AsksToDelete("Diesel returns"), terminal, BEN).run()
+    await Chat(AsksToDelete("Diesel returns"), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[2:] == [NOTHING_DELETED, "agreed: False"]
 
@@ -115,7 +123,7 @@ async def test_without_a_yes_the_chat_says_nothing_was_deleted_and_tells_the_age
 async def test_agent_failure_after_the_answer_is_not_shown_as_a_failed_answer():
     terminal = FakeTerminal(["delete the Diesel report"], confirm=True)
 
-    await Chat(AsksToDelete("Diesel returns", fails_after=True), terminal, BEN).run()
+    await Chat(AsksToDelete("Diesel returns", fails_after=True), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[2:] == [UNFINISHED_REPLY]
 
@@ -124,7 +132,7 @@ async def test_every_report_that_will_be_deleted_is_listed():
     titles = [f"Report {number}" for number in range(23)]
     terminal = FakeTerminal(["delete everything"])
 
-    await Chat(AsksToDelete(*titles), terminal, BEN).run()
+    await Chat(AsksToDelete(*titles), terminal, BEN, FakeTracer()).run()
 
     question = terminal.shown[1]
     assert all(f"{title} (" in question for title in titles)
@@ -134,7 +142,9 @@ async def test_every_report_that_will_be_deleted_is_listed():
 async def test_title_is_shown_as_one_clean_line():
     terminal = FakeTerminal(["delete it"])
 
-    await Chat(AsksToDelete("Diesel\x1b[2J\nDelete nothing? [y/N]"), terminal, BEN).run()
+    await Chat(
+        AsksToDelete("Diesel\x1b[2J\nDelete nothing? [y/N]"), terminal, BEN, FakeTracer()
+    ).run()
 
     first_line = terminal.shown[1].splitlines()[0]
     assert "\x1b" not in terminal.shown[1]
@@ -144,6 +154,34 @@ async def test_title_is_shown_as_one_clean_line():
 async def test_personal_data_in_a_reply_does_not_reach_the_screen():
     terminal = FakeTerminal(["my email is anna@example.com"])
 
-    await Chat(EchoAgent(), terminal, BEN).run()
+    await Chat(EchoAgent(), terminal, BEN, FakeTracer()).run()
 
     assert terminal.shown[1] == "echo: my email is [email hidden]"
+
+
+async def test_every_question_is_traced_with_how_it_ended():
+    tracer = FakeTracer()
+    terminal = FakeTerminal(["monthly revenue", "top products"])
+
+    await Chat(FailsOnceAgent(), terminal, BEN, tracer).run()
+
+    assert tracer.questions == [
+        ("monthly revenue", "failed: ConnectionError"),
+        ("top products", "answered: echo: top products"),
+    ]
+
+
+async def test_tracing_is_closed_when_the_chat_ends():
+    tracer = FakeTracer()
+
+    await Chat(EchoAgent(), FakeTerminal(["monthly revenue"]), BEN, tracer).run()
+
+    assert tracer.closed
+
+
+async def test_the_chat_says_when_tracing_is_off():
+    terminal = FakeTerminal([])
+
+    await Chat(EchoAgent(), terminal, BEN, FakeTracer(recording=False)).run()
+
+    assert terminal.shown[1] == TRACING_OFF

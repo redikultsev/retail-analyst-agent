@@ -2,7 +2,7 @@ import sqlite3
 from decimal import Decimal
 
 import pytest
-from fakes import BrokenModel, FakeExecutor, ScriptedModel, brands
+from fakes import BrokenModel, FakeExecutor, FakeTracer, ScriptedModel, brands
 from langchain_core.messages import AIMessage
 from typer.testing import CliRunner
 
@@ -31,6 +31,12 @@ def warehouse(monkeypatch):
 
     answer_with(FakeExecutor(fetch=brands("Diesel", "Joe's Jeans", "Polo Ralph Lauren")))
     return answer_with
+
+
+@pytest.fixture(autouse=True)
+def no_tracing(monkeypatch):
+    # The real tracer starts a local Langfuse, which takes a second. It has its own tests.
+    monkeypatch.setattr("retail_agent.di.build_tracer", lambda *args: FakeTracer())
 
 
 @pytest.fixture(autouse=True)

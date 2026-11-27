@@ -85,6 +85,65 @@ for personal data or another brand is refused, and the log line says why.
 
 Exit codes: `0` the query ran, `1` it was refused, `2` the setup is wrong.
 
+### Traces
+
+Every question is recorded as one trace: the question, each model call with its tokens, each
+tool call with its arguments and result, and how it ended. Traces are recorded with the
+Langfuse SDK. Emails, phone numbers, the API key and the project id are removed before a
+trace leaves the process.
+
+Without Langfuse keys the chat starts [langfuse-lite](https://github.com/langfuse/langfuse-lite),
+a local Langfuse that keeps everything in one SQLite file, `data/langfuse.db`. Nothing leaves
+your machine. The file keeps every prompt, so it grows by a few megabytes per long
+conversation; delete it to start over. Read the traces back with its own commands:
+
+```bash
+uv run langfuse-lite observations --db data/langfuse.db
+```
+
+```text
+trace_id                          name      type  start                duration  obs  errors  tokens  cost
+dfd809fbb922c7a822cc586f515e9f2c  question  SPAN  2026-11-27 23:16:10  2.4s      9    1       1168    $0.00049
+d7842bd0db09d692bcc2dc7043328c05  question  SPAN  2026-11-27 23:16:04  6.6s      18   2       2131    $0.00075
+```
+
+```bash
+uv run langfuse-lite tree d7842bd0 --io --db data/langfuse.db
+```
+
+Shows one question step by step, with inputs and outputs. This is where you see why an answer
+went wrong: which model failed, which query was refused and why.
+
+```bash
+uv run langfuse-lite observations --level ERROR --db data/langfuse.db
+```
+
+Lists only the steps that failed.
+
+```bash
+uv run langfuse-lite sql "SELECT type, level, count(*) AS n, sum(input_usage) AS tokens_in, sum(output_usage) AS tokens_out, round(avg(latency_ms)) AS avg_ms FROM observations WHERE type IN ('GENERATION', 'TOOL') OR name = 'question' GROUP BY type, level" --db data/langfuse.db
+```
+
+```text
+type        level    n  tokens_in  tokens_out  avg_ms
+GENERATION  DEFAULT  3  3185       114         700
+GENERATION  ERROR    3                         1927
+SPAN        DEFAULT  2                         4523
+TOOL        DEFAULT  1                         1113
+```
+
+Gives the numbers: questions, model calls and how many failed, tool calls, tokens and time.
+
+```bash
+uv run langfuse-lite export --out traces.html --db data/langfuse.db
+```
+
+Writes the trace viewer with its data as one HTML file.
+
+With `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_HOST` set, traces go to that
+Langfuse instead and no local one is started. If the local Langfuse cannot start, the chat
+says so in one line and works without traces.
+
 ## Example run
 
 To be added.

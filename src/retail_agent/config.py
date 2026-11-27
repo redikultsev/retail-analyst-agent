@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     agent_timeout_s: float = Field(default=120.0, gt=0, le=3600)
 
     @property
+    def secrets(self) -> tuple[str, ...]:
+        """Values that must never appear in a log, a trace or a message to the model."""
+        return (self.google_cloud_project, self.google_api_key.get_secret_value())
+
+    @property
     def langfuse_enabled(self) -> bool:
         return bool(self.langfuse_public_key and self.langfuse_secret_key)
 

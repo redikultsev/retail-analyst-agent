@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from fakes import BEN, FakeTerminal, ScriptedModel, tool_call, tool_calls
+from fakes import BEN, FakeTerminal, FakeTracer, ScriptedModel, tool_call, tool_calls
 from langchain_core.messages import AIMessage
 
 from retail_agent.agent.langchain_agent import LangChainAgent
@@ -200,7 +200,7 @@ async def test_in_a_chat_a_yes_deletes_the_report_and_the_model_reports_it(repor
     model = ScriptedModel([delete_call([first.id]), AIMessage("The report is gone.")])
     terminal = FakeTerminal(["delete the Diesel report"], confirm=True)
 
-    await Chat(agent(model, reports), terminal, BEN).run()
+    await Chat(agent(model, reports), terminal, BEN, FakeTracer()).run()
 
     assert reports.find("ben") == []
     assert last_tool_result(model) == {"status": "deleted", "deleted": 1}

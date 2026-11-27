@@ -12,6 +12,7 @@ from langchain.agents.middleware import (
     ModelFallbackMiddleware,
     ToolCallLimitMiddleware,
 )
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
@@ -32,6 +33,7 @@ class LangChainAgent:
         max_model_calls: int,
         max_tool_calls: Mapping[str, int],
         timeout_s: float,
+        callbacks: Sequence[BaseCallbackHandler] = (),
     ) -> None:
         self._graph = create_agent(  # pyright: ignore[reportCallIssue]
             model,
@@ -48,7 +50,8 @@ class LangChainAgent:
             ],
         )
         self._timeout_s = timeout_s
-        self._thread = _new_thread()
+        self._callbacks = list(callbacks)
+        self._thread = self._new_thread()
         self._waiting: DeletionRequest | None = None
 
     async def reply(self, message: str) -> str | DeletionRequest:
@@ -88,9 +91,8 @@ class LangChainAgent:
         return text
 
     def _forget(self) -> None:
-        self._thread = _new_thread()
+        self._thread = self._new_thread()
         self._waiting = None
 
-
-def _new_thread() -> RunnableConfig:
-    return {"configurable": {"thread_id": str(uuid4())}}
+    def _new_thread(self) -> RunnableConfig:
+        return {"configurable": {"thread_id": str(uuid4())}, "callbacks": self._callbacks}

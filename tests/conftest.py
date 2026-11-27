@@ -1,4 +1,7 @@
 import pytest
+from langfuse._client.resource_manager import LangfuseResourceManager
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
 
 from retail_agent.adapters.report_repository import ReportRepository
 
@@ -37,3 +40,16 @@ def required_env(monkeypatch):
 @pytest.fixture
 def reports(tmp_path) -> ReportRepository:
     return ReportRepository(tmp_path / "retail_agent.db")
+
+
+@pytest.fixture(autouse=True)
+def fresh_langfuse():
+    # Langfuse keeps one client per key for the whole process. Each test needs its own,
+    # because each test writes traces to its own folder.
+    yield
+    LangfuseResourceManager.reset()
+    # reset() leaves the old client's exporter on the shared provider, still aimed at a
+    # local Langfuse that has stopped. The next test would wait on it.
+    provider = trace.get_tracer_provider()
+    if isinstance(provider, TracerProvider):
+        provider.shutdown()

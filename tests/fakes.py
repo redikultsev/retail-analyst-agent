@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from typing import Any
 
 from google.cloud.bigquery import SchemaField
@@ -157,3 +158,29 @@ class FakeTerminal:
     def confirm(self, question: str) -> bool:
         self.shown.append(question)
         return self._confirm
+
+
+class FakeTracer:
+    """Remembers how each question ended."""
+
+    def __init__(self, *, recording: bool = True) -> None:
+        self.recording = recording
+        self.questions: list[tuple[str, str]] = []
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+    def callbacks(self) -> list[Any]:
+        return []
+
+    @contextmanager
+    def question(self, text: str) -> Generator["FakeTracer"]:
+        self._text = text
+        yield self
+
+    def answered(self, reply: str) -> None:
+        self.questions.append((self._text, f"answered: {reply}"))
+
+    def failed(self, error: Exception) -> None:
+        self.questions.append((self._text, f"failed: {type(error).__name__}"))
