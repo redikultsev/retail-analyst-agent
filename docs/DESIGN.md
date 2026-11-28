@@ -30,6 +30,51 @@ To be added (Mermaid).
 
 To be added.
 
+### 3.1 Warehouse: how one query is checked
+
+The agent sends any SQL to `run_sql`. Warehouse returns rows or a refusal with a reason, and never raises. A refusal goes back to the model, and the model fixes the query (up to 6 queries per question).
+
+```mermaid
+flowchart TB
+    sql([SQL from the agent])
+    guard[1. SQL guard<br/>parse, check, rewrite]
+    dry[2. Dry run<br/>must be a SELECT under 1 GB]
+    run[3. Run<br/>1 GB cap, 30 s timeout]
+    cut[4. Cut<br/>500 rows, 20,000 characters]
+    mask[5. Mask<br/>emails and phones]
+    ok([Rows as JSON])
+    no([Refusal as JSON])
+
+    sql --> guard --> dry --> run --> cut --> mask --> ok
+    guard -. not allowed .-> no
+    dry -. not a SELECT or too expensive .-> no
+    run -. BigQuery error .-> no
+```
+
+The SQL guard parses the query into a tree with sqlglot and checks the tree, not the text:
+
+| Check | Refused example |
+|---|---|
+| One statement, a SELECT | `DELETE FROM orders` |
+| No personal columns | `SELECT email FROM users` |
+| No functions that reach outside the data | `SELECT SESSION_USER()` |
+| Only the four tables | `SELECT * FROM inventory_items` |
+| No table left unchecked | a table hidden in `IN UNNEST(...)` |
+
+Then it rewrites the query. Ben manages Diesel. The model forgets the brand filter and writes `... FROM products ...`. The guard turns that into:
+
+```sql
+FROM (SELECT <allowed columns> FROM products WHERE brand IN ('Diesel')) AS products
+```
+
+It does this for every table, and adds `LIMIT 501` when there is no limit or it is above 500. Rows of other brands are not underneath, whatever the model writes on top.
+
+A refusal the model receives:
+
+```json
+{"status": "denied", "message": "Column email is not available. Identify customers by id."}
+```
+
 ## 4. Data flow: one question from input to answer
 
 To be added.

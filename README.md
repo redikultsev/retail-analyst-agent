@@ -44,6 +44,11 @@ Fill in `.env`:
 | `AGENT_MAX_QUERIES` | no | Queries for one question. Default: 6. |
 | `AGENT_TIMEOUT_S` | no | Seconds for one question. Default: 120. |
 
+On the free tier `gemini-4-hydrogen` allows 20 requests a day. After that every call to it
+fails with a 429, the fallback model answers, and each question takes a few seconds longer.
+The traces show this. With a paid key, or with `GEMINI_MODEL=gemini-3.5-flash-lite`, it does
+not happen.
+
 ## Commands
 
 ```bash
